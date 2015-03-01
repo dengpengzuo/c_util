@@ -18,9 +18,69 @@ typedef struct ezWorker_t {
 	ezEventLoop *w_event;
 } ezWorker;
 
-#define 	WORKER_SIZE			4
+struct ez_signal {
+    int  signo;
+    char *signame;
+    int  flags;
+    void (*handler)(int signo);
+};
+
+static ezWorker boss ;
+#define WORKER_SIZE			4
 static ezWorker workers[WORKER_SIZE];
 static int last_worker = 0;
+
+static void cust_signal_handler(int signo);
+
+static struct ez_signal cust_signals[] = {
+    { SIGHUP,  "SIGHUP",  0, SIG_IGN },
+    { SIGPIPE, "SIGPIPE", 0, SIG_IGN },
+    { SIGINT,  "SIGINT",  0, cust_signal_handler },
+    { 0,       "NULL",    0, NULL }
+};
+
+static void cust_signal_init(void)
+{
+    struct ez_signal *sig;
+	int status;
+
+    for (sig = cust_signals; sig->signo != 0; sig++) {
+
+		struct sigaction sa;
+        memset(&sa, 0, sizeof(sa));
+
+        sa.sa_handler = sig->handler;
+        sa.sa_flags = sig->flags;
+        sigemptyset(&sa.sa_mask);
+
+        status = sigaction(sig->signo, &sa, NULL);
+        if (status < 0) {
+            log_error("sigaction(%s) failed: %s", sig->signame, strerror(errno));
+            return ;
+        }
+    }
+}
+
+static void cust_signal_handler(int signo)
+{
+    struct ez_signal *sig;
+    for (sig = cust_signals; sig->signo != 0; sig++) {
+        if (sig->signo == signo) {
+            break;
+        }
+    }
+
+	log_info("signal %d (%s) received", signo, sig->signame);
+	if (signo == 0) return;
+
+    switch (signo) {
+    case SIGINT:
+		ez_stop_event_loop(boss.w_event);
+        break;
+    default:
+        ;
+    }
+}
 
 void *ez_worker_thread_run(void *t)
 {
@@ -82,26 +142,24 @@ void ez_worker_push_client(int c)
 	}
 }
 
-void init_ez_workers()
+void init_workers()
 {
 	pthread_t thid;
 	for (int i = 0; i < WORKER_SIZE; ++i) {
-		workers[i].id = i;
+		workers[i].id = i + 1;
 
 		log_info("create worker id: %d event loop .", workers[i].id);
 		workers[i].w_event = ez_create_event_loop(1024);
-
 		pthread_create(&thid, NULL, ez_worker_thread_run, &workers[i]);
 	}
 }
 
-void stop_ez_workers()
+void stop_free_workers()
 {
 	for (int i = 0; i < WORKER_SIZE; ++i) {
 		log_info("send worker id: %d exit event loop .", workers[i].id);
 		ez_stop_event_loop(workers[i].w_event);
-	}
-	for (int i = 0; i < WORKER_SIZE; ++i) {
+
 		log_info("wait worker id: %d thread exit.", workers[i].id);
 		pthread_join(workers[i].thid, NULL);
 
@@ -134,21 +192,29 @@ int time_out_handler(ezEventLoop * eventLoop, int64_t timeId, void *clientData)
 	return AE_TIMER_NEXT;
 }
 
-void read_char_from_stdin(ezEventLoop * eventLoop, int fd, void *clientData, int mask)
+void init_boss(int s)
 {
-	EZ_NOTUSED(clientData);
-	EZ_NOTUSED(mask);
+	log_info("create main event loop...");
+	boss.id = 0;
+	boss.thid = pthread_self();
+	boss.w_event = ez_create_event_loop(128);
 
-	char buf[33];
-	ssize_t nread = read(fd, buf, 32);
-	if (nread > 0) {
-		buf[nread] = '\0';
-		if (buf[0] == 'q' || buf[0] == 'Q') {
-			log_info("good bye!");
-			ez_delete_file_event(eventLoop, fd, AE_READABLE);
-			ez_stop_event_loop(eventLoop); // 停止 main_event
-		}
-	}
+	ez_create_file_event(boss.w_event, s, AE_READABLE, accept_handler, NULL);
+	// test time out.
+	ez_create_time_event(boss.w_event, 5000, time_out_handler, NULL);
+}
+
+void run_boss()
+{
+	log_info("run main event loop .");
+	ez_run_event_loop(boss.w_event);
+}
+
+void stop_free_boss()
+{
+	log_info("stop main event loop exit, delete it!");
+	ez_stop_event_loop(boss.w_event);
+	ez_delete_event_loop(boss.w_event);
 }
 
 int main(int argc, char **argv)
@@ -157,36 +223,19 @@ int main(int argc, char **argv)
 	EZ_NOTUSED(argc);
 	EZ_NOTUSED(argv);
 
-	signal(SIGHUP, SIG_IGN);
-	signal(SIGPIPE, SIG_IGN);
-
+	cust_signal_init();
 	log_init(LOG_INFO, NULL);
 
 	int s = ez_net_tcp_server(port, NULL, 1024);
 	log_info("server %d at port %d wait client ...", s, port);
 
-	int s6 = ez_net_tcp6_server(port, NULL, 1024);
-	log_info("server %d at port %d wait client ...", s6, port);
-
-	log_info("create main event loop...");
-	ezEventLoop *main_event = ez_create_event_loop(128);
-	ez_create_file_event(main_event, s, AE_READABLE, accept_handler, NULL);
-	ez_create_file_event(main_event, s6, AE_READABLE, accept_handler, NULL);
-	ez_create_time_event(main_event, 5000, time_out_handler, NULL);
-	ez_create_file_event(main_event, STDIN_FILENO, AE_READABLE, read_char_from_stdin, NULL);
-	// 初始化 worker thread.
-	init_ez_workers();
-
-	ez_run_event_loop(main_event);
-	log_info("delete main event loop");
-	ez_delete_event_loop(main_event);
-
-	// 停止 worker thread.
-	stop_ez_workers();
+	init_boss(s);
+	init_workers();
+	run_boss();
+	stop_free_boss();
+	stop_free_workers();
 
 	ez_net_close_socket(s);
-	ez_net_close_socket(s6);
-
 	log_release();
 	return 0;
 }
