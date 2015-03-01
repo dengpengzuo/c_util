@@ -1,0 +1,474 @@
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/un.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <string.h>
+#include <netdb.h>
+#include <errno.h>
+#include <stdarg.h>
+#include <stdio.h>
+
+#include "ez_net.h"
+#include "ez_util.h"
+#include "ez_log.h"
+
+/* create server */
+static int anetBind(int s, struct sockaddr *sa, socklen_t len)
+{
+	if (bind(s, sa, len) == -1) {
+		log_error("%d > bind: %s", s, strerror(errno));
+		return ANET_ERR;
+	}
+
+	return ANET_OK;
+}
+
+static int ez_net_listen(int s, int backlog)
+{
+	if (listen(s, backlog) == -1) {
+		log_error("%d > listen: %s", s, strerror(errno));
+		return ANET_ERR;
+	}
+	return ANET_OK;
+}
+
+static int _ez_net_tcp_server(int port, char *bindaddr, int af, int backlog)
+{
+	int s, rv;
+	char _port[7];		/* strlen("65535") */
+	struct addrinfo hints, *servinfo, *p;
+
+	memset(_port, 0, sizeof(_port));
+	ez_snprintf(_port, 6, "%d", port);
+
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = af;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = AI_PASSIVE;	/* No effect if bindaddr != NULL */
+
+	if ((rv = getaddrinfo(bindaddr, _port, &hints, &servinfo)) != 0) {
+		log_error("getaddrinfo error:%s", gai_strerror(rv));
+		return ANET_ERR;
+	}
+	s = 0;
+	for (p = servinfo; p != NULL; p = p->ai_next) {
+		if ((s = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
+			continue;
+
+		if (af == AF_INET6 && ez_net_set_ipv6_only(s) == ANET_ERR)
+			goto error;
+		if (ez_net_set_reuse_addr(s) == ANET_ERR)
+			goto error;
+		if (ez_net_set_non_block(s) == ANET_ERR)
+			goto error;
+		if (anetBind(s, p->ai_addr, p->ai_addrlen) == ANET_ERR)
+			goto error;
+		if (ez_net_listen(s, backlog) == ANET_ERR)
+			goto error;
+		goto end;
+	}
+
+	if (p == NULL) {
+		log_error("unable create TcpServer.");
+		goto error;
+	}
+
+ error:
+	if (s != 0)
+		ez_net_close_socket(s);
+	s = ANET_ERR;
+ end:
+	freeaddrinfo(servinfo);
+	return s;
+}
+
+int ez_net_tcp_server(int port, char *bindaddr, int backlog)
+{
+	return _ez_net_tcp_server(port, bindaddr, AF_INET, backlog);
+}
+
+int ez_net_tcp6_server(int port, char *bindaddr, int backlog)
+{
+	return _ez_net_tcp_server(port, bindaddr, AF_INET6, backlog);
+}
+
+static int ez_net_tcp_generic_accept(int s, struct sockaddr *sa, socklen_t * len)
+{
+	int fd;
+	int ezerrno;
+	fd = accept(s, sa, len);
+	if (fd == -1) {
+		ezerrno = errno;
+		if (ezerrno == EAGAIN || ezerrno == EWOULDBLOCK || ezerrno == EINTR) {
+			log_error("sever socket %d accept EAGAIN.", s);
+			return ANET_EAGAIN;
+		} else {
+			log_error("sever socket %d accept error: %s", s, strerror(ezerrno));
+			return ANET_ERR;
+		}
+	}
+	return fd;
+}
+
+int ez_net_tcp_accept2(int s, char *ip, size_t ip_len, int *port)
+{
+	int fd;
+	struct sockaddr_storage sa;
+	socklen_t salen = sizeof(sa);
+	fd = ez_net_tcp_generic_accept(s, (struct sockaddr *)&sa, &salen);
+
+	if(fd == ANET_ERR)
+		return ANET_ERR;
+	else if (fd == ANET_EAGAIN)
+		return ANET_EAGAIN;
+
+	ez_net_set_non_block(fd);
+
+	if (sa.ss_family == AF_INET) {
+		struct sockaddr_in *s = (struct sockaddr_in *)&sa;
+		if (ip)
+			inet_ntop(AF_INET, (void *)&(s->sin_addr), ip, ip_len);
+		if (port)
+			*port = ntohs(s->sin_port);
+	} else {
+		struct sockaddr_in6 *s = (struct sockaddr_in6 *)&sa;
+		if (ip)
+			inet_ntop(AF_INET6, (void *)&(s->sin6_addr), ip, ip_len);
+		if (port)
+			*port = ntohs(s->sin6_port);
+	}
+	return fd;
+}
+
+int ez_net_close_socket(int s)
+{
+	close(s);
+	return ANET_OK;
+}
+
+/* create client */
+#define ANET_CONNECT_NONE 0
+#define ANET_CONNECT_NONBLOCK 1
+static int ez_net_tcp_connect_ex(const char *addr, int port, int flags)
+{
+	int s = ANET_ERR, rv;
+	char portstr[6];	/* strlen("65535") + 1; */
+	struct addrinfo hints, *servinfo, *p;
+
+	memset(portstr, 0, sizeof(portstr));
+	snprintf(portstr, sizeof(portstr), "%d", port);
+
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+
+	if ((rv = getaddrinfo(addr, portstr, &hints, &servinfo)) != 0) {
+		log_error("%s", gai_strerror(rv));
+		return ANET_ERR;
+	}
+	for (p = servinfo; p != NULL; p = p->ai_next) {
+		/* Try to create the socket and to connect it.
+		 * If we fail in the socket() call, or on connect(), we retry with
+		 * the next entry in servinfo. */
+		if ((s = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
+			continue;
+		if (ez_net_set_reuse_addr(s) == ANET_ERR)
+			goto error;
+		if ((flags & ANET_CONNECT_NONBLOCK) && ez_net_set_non_block(s) != ANET_OK)
+			goto error;
+		if (connect(s, p->ai_addr, p->ai_addrlen) == -1) {
+			/* If the socket is non-blocking, it is ok for connect() to
+			 * return an EINPROGRESS error here. */
+			if (errno == EINPROGRESS && (flags & ANET_CONNECT_NONBLOCK))
+				goto end;
+			else {
+				log_stderr("connect to host[%s:%d] failed, cause:[%s]!", addr, port, strerror(errno));
+			}
+			// close
+			if (s != ANET_ERR) {
+				ez_net_close_socket(s);
+				s = ANET_ERR;
+			}
+			continue;
+		}
+
+		/* If we ended an iteration of the for loop without errors, we
+		 * have a connected socket. Let's return to the caller. */
+		goto end;
+	}
+
+ error:
+	if (s != ANET_ERR) {
+		ez_net_close_socket(s);
+		s = ANET_ERR;
+	}
+
+ end:
+	freeaddrinfo(servinfo);
+	return s;
+}
+
+int ez_net_tcp_connect(const char *addr, int port)
+{
+	return ez_net_tcp_connect_ex(addr, port, ANET_CONNECT_NONE);
+}
+
+int ez_net_tcp_connect_non_block(const char *addr, int port)
+{
+	return ez_net_tcp_connect_ex(addr, port, ANET_CONNECT_NONBLOCK);
+}
+
+/* socket option */
+int ez_net_set_send_buf_size(int fd, int buffsize)
+{
+	if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &buffsize, sizeof(buffsize)) == -1) {
+		log_error("setsockopt SO_SNDBUF: %s", strerror(errno));
+		return ANET_ERR;
+	}
+	return ANET_OK;
+}
+
+int ez_net_set_non_block(int fd)
+{
+	int flags;
+
+	/* Set the socket non-blocking.
+	 * Note that fcntl(2) for F_GETFL and F_SETFL can't be
+	 * interrupted by a signal. */
+	if ((flags = fcntl(fd, F_GETFL)) == -1) {
+		log_error("fcntl(F_GETFL): %s", strerror(errno));
+		return ANET_ERR;
+	}
+	if (fcntl(fd, F_SETFL, flags | O_NONBLOCK) == -1) {
+		log_error("fcntl(F_SETFL,O_NONBLOCK): %s", strerror(errno));
+		return ANET_ERR;
+	}
+	return ANET_OK;
+}
+
+int ez_net_set_reuse_addr(int fd)
+{
+	int yes = 1;
+	/* Make sure connection-intensive things like the redis benckmark
+	 * will be able to close/open sockets a zillion of times */
+	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1) {
+		log_error("setsockopt SO_REUSEADDR: %s", strerror(errno));
+		return ANET_ERR;
+	}
+	return ANET_OK;
+}
+
+int ez_net_set_tcp_nodelay(int fd, int val)
+{
+	if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &val, sizeof(val)) == -1) {
+		log_error("setsockopt TCP_NODELAY: %s", strerror(errno));
+		return ANET_ERR;
+	}
+	return ANET_OK;
+}
+
+/* Set TCP keep alive option to detect dead peers. The interval option
+ * is only used for Linux as we are using Linux-specific APIs to set
+ * the probe send time, interval, and count. */
+int ez_net_tcp_keepalive(int fd, int interval)
+{
+	int val = 1;
+
+	if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val)) == -1) {
+		log_error("setsockopt SO_KEEPALIVE: %s", strerror(errno));
+		return ANET_ERR;
+	}
+#ifdef __linux__
+	if (interval > 0) {
+		/* Default settings are more or less garbage, with the keepalive time
+		 * set to 7200 by default on Linux. Modify settings to make the feature
+		 * actually useful. */
+
+		/* Send first probe after interval. */
+		val = interval;
+		if (setsockopt(fd, IPPROTO_TCP, TCP_KEEPIDLE, &val, sizeof(val))
+		    < 0) {
+			log_error("setsockopt linux TCP_KEEPIDLE: %s", strerror(errno));
+			return ANET_ERR;
+		}
+
+		/* Send next probes after the specified interval. Note that we set the
+		 * delay as interval / 3, as we send three probes before detecting
+		 * an error (see the next setsockopt call). */
+		val = interval / 3;
+		if (val == 0)
+			val = 1;
+		if (setsockopt(fd, IPPROTO_TCP, TCP_KEEPINTVL, &val, sizeof(val)) < 0) {
+			log_error("setsockopt linux TCP_KEEPINTVL: %s", strerror(errno));
+			return ANET_ERR;
+		}
+
+		/* Consider the socket in error state after three we send three ACK
+		 * probes without getting a reply. */
+		val = 3;
+		if (setsockopt(fd, IPPROTO_TCP, TCP_KEEPCNT, &val, sizeof(val))
+		    < 0) {
+			log_error("setsockopt linux TCP_KEEPCNT: %s", strerror(errno));
+			return ANET_ERR;
+		}
+	}
+#else
+	((void)interval);	/* Avoid unused var warning for non Linux systems. */
+#endif
+
+	return ANET_OK;
+}
+
+int ez_net_set_ipv6_only(int fd)
+{
+	int yes = 1;
+	if (setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &yes, sizeof(yes)) == -1) {
+		log_error("setsockopt: %s", strerror(errno));
+		return ANET_ERR;
+	}
+	return ANET_OK;
+}
+
+/*
+ * If flags is set to RESOLVE_IP_ONLY the function only resolves hostnames
+ * that are actually already IPv4 or IPv6 addresses. This turns the function
+ * into a validating / normalizing function.
+ */
+#define RESOLVE_NAME       0
+#define RESOLVE_IP_ONLY    1
+static int ez_net_resolve_generic(char *host, char *ipbuf, size_t ipbuf_len, int flags)
+{
+	struct addrinfo hints, *info;
+	int rv;
+
+	memset(&hints, 0, sizeof(hints));
+	if (flags & RESOLVE_IP_ONLY)
+		hints.ai_flags = AI_NUMERICHOST;
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;	/* specify socktype to avoid dups */
+
+	if ((rv = getaddrinfo(host, NULL, &hints, &info)) != 0) {
+		log_error("%s", gai_strerror(rv));
+		return ANET_ERR;
+	}
+	if (info->ai_family == AF_INET) {
+		struct sockaddr_in *sa = (struct sockaddr_in *)info->ai_addr;
+		inet_ntop(AF_INET, &(sa->sin_addr), ipbuf, ipbuf_len);
+	} else {
+		struct sockaddr_in6 *sa = (struct sockaddr_in6 *)info->ai_addr;
+		inet_ntop(AF_INET6, &(sa->sin6_addr), ipbuf, ipbuf_len);
+	}
+
+	freeaddrinfo(info);
+	return ANET_OK;
+}
+
+int ez_net_resolve_host_name(char *host, char *ipbuf, size_t ipbuf_len)
+{
+	return ez_net_resolve_generic(host, ipbuf, ipbuf_len, RESOLVE_NAME);
+}
+
+int ez_net_resolve_host_ip(char *host, char *ipbuf, size_t ipbuf_len)
+{
+	return ez_net_resolve_generic(host, ipbuf, ipbuf_len, RESOLVE_IP_ONLY);
+}
+
+/* Like read(2) but make sure 'count' is read before to return
+ * (unless error or EOF condition is encountered) */
+int ez_net_read(int fd, char *buf, size_t bufsize, ssize_t *nbytes)
+{
+	ssize_t r = read(fd, buf, bufsize);
+	if (r == 0) {
+		*nbytes = 0;
+	} else if (r == -1) {
+		*nbytes = 0;
+		if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
+			return ANET_EAGAIN;	/* 非阻塞模式 */
+		else
+			return ANET_ERR;
+	} else {
+		*nbytes = r;
+	}
+	return ANET_OK;
+}
+
+/* Like write(2) but make sure 'count' is read before to return
+ * (unless error is encountered) */
+int ez_net_write(int fd, char *buf, size_t bufsize, ssize_t *nbytes)
+{
+	ssize_t r = write(fd, buf, bufsize);
+	if (r == 0) {
+		*nbytes = 0;
+	} else if (r == -1) {
+		*nbytes = 0;
+		if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
+			return ANET_EAGAIN; /* 非阻塞模式 */
+		else
+			return ANET_ERR;
+	} else {
+		*nbytes = r;
+	}
+	return ANET_OK;
+}
+
+int ez_net_peer_name(int fd, char *ip, size_t ip_len, int *port)
+{
+	struct sockaddr_storage sa;
+	socklen_t salen = sizeof(sa);
+
+	if (getpeername(fd, (struct sockaddr *)&sa, &salen) == -1) {
+		if (port)
+			*port = 0;
+		ip[0] = '?';
+		ip[1] = '\0';
+		return -1;
+	}
+	if (sa.ss_family == AF_INET) {
+		struct sockaddr_in *s = (struct sockaddr_in *)&sa;
+		if (ip)
+			inet_ntop(AF_INET, (void *)&(s->sin_addr), ip, ip_len);
+		if (port)
+			*port = ntohs(s->sin_port);
+	} else {
+		struct sockaddr_in6 *s = (struct sockaddr_in6 *)&sa;
+		if (ip)
+			inet_ntop(AF_INET6, (void *)&(s->sin6_addr), ip, ip_len);
+		if (port)
+			*port = ntohs(s->sin6_port);
+	}
+	return 0;
+}
+
+int ez_net_socket_name(int fd, char *ip, size_t ip_len, int *port)
+{
+	struct sockaddr_storage sa;
+	socklen_t salen = sizeof(sa);
+
+	if (getsockname(fd, (struct sockaddr *)&sa, &salen) == -1) {
+		if (port)
+			*port = 0;
+		ip[0] = '?';
+		ip[1] = '\0';
+		return -1;
+	}
+	if (sa.ss_family == AF_INET) {
+		struct sockaddr_in *s = (struct sockaddr_in *)&sa;
+		if (ip)
+			inet_ntop(AF_INET, (void *)&(s->sin_addr), ip, ip_len);
+		if (port)
+			*port = ntohs(s->sin_port);
+	} else {
+		struct sockaddr_in6 *s = (struct sockaddr_in6 *)&sa;
+		if (ip)
+			inet_ntop(AF_INET6, (void *)&(s->sin6_addr), ip, ip_len);
+		if (port)
+			*port = ntohs(s->sin6_port);
+	}
+	return 0;
+}
