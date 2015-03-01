@@ -3,37 +3,19 @@
 
 #define  MIN_HEAP_SIZE      1024
 
-struct ezMinHeap_t {
-	gpointer *array;
-	int n;			/* array length */
-	int a;			/* array alloc length */
-	cmpHandler *heap_comp_func;
-	freeValueHandler *heap_free_func;
-};
-
 static int ez_min_heap_resize_(ezMinHeap * m);
 
 static void ez_min_heap_shift_up_(ezMinHeap * m, int hole_index, gpointer v);
 
 static void ez_min_heap_shift_down_(ezMinHeap * m, int hole_index, gpointer v);
 
-ezMinHeap *ez_min_heap_init(cmpHandler * cmp_handler, freeValueHandler * free_handler)
+void ez_min_heap_init(ezMinHeap * m, cmpHandler * cmp_handler, freeValueHandler * free_handler)
 {
-	ezMinHeap *m = NULL;
-	if (cmp_handler == NULL)
-		return m;
-	m = ez_malloc(sizeof(ezMinHeap));
 	m->array = ez_malloc(sizeof(gpointer) * MIN_HEAP_SIZE);
-	if (m->array == NULL) {
-		ez_free(m);
-		return NULL;
-	}
-
 	m->a = MIN_HEAP_SIZE;
 	m->n = 0;
 	m->heap_comp_func = cmp_handler;
 	m->heap_free_func = free_handler;
-	return m;
 }
 
 void ez_min_heap_free(ezMinHeap * m)
@@ -45,7 +27,6 @@ void ez_min_heap_free(ezMinHeap * m)
 				m->heap_free_func(m->array[i]);
 	}
 	ez_free(m->array);
-	ez_free(m);
 }
 
 int ez_min_heap_size(ezMinHeap * m)

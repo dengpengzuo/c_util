@@ -50,7 +50,7 @@ struct ezEventLoop_t {
 	// time out event fields.
 	time_t lastTime;				/* Used to detect system clock skew */
 	int64_t timeNextId;
-	ezMinHeap *timeEventMinHeap;	/* Registered time events */
+	ezMinHeap timeEventMinHeap;	/* Registered time events */
 
 	ezFiredEvent *fired;			/* Fired events */
 };
@@ -90,9 +90,7 @@ ezEventLoop *ez_create_event_loop(int setsize)
 	if (eventLoop->fired == NULL)
 		goto err;
 
-	eventLoop->timeEventMinHeap = ez_min_heap_init(ez_time_event_compare_proc, ez_time_event_free_proc);
-	if (eventLoop->timeEventMinHeap == NULL)
-		goto err;
+	ez_min_heap_init(&eventLoop->timeEventMinHeap, ez_time_event_compare_proc, ez_time_event_free_proc);
 
 	eventLoop->setsize = setsize;
 	eventLoop->lastTime = time(NULL);
@@ -114,7 +112,7 @@ ezEventLoop *ez_create_event_loop(int setsize)
 	if (eventLoop) {
 		ez_free(eventLoop->events);
 		ez_free(eventLoop->fired);
-		ez_min_heap_free(eventLoop->timeEventMinHeap);
+		ez_min_heap_free(&eventLoop->timeEventMinHeap);
 		ez_free(eventLoop);
 	}
 	return NULL;
@@ -124,12 +122,11 @@ void ez_delete_event_loop(ezEventLoop * eventLoop)
 {
 	if (!eventLoop)
 		return;
-	ezTimeEvent *te = NULL;
 	ezApiDelete(eventLoop);
 
 	ez_free(eventLoop->events);
 	ez_free(eventLoop->fired);
-	ez_min_heap_free(eventLoop->timeEventMinHeap);
+	ez_min_heap_free(&eventLoop->timeEventMinHeap);
 	ez_free(eventLoop);
 }
 
@@ -200,7 +197,7 @@ int64_t ez_create_time_event(ezEventLoop * eventLoop, int64_t period, ezTimeProc
 	te->period = period;
 	te->when_ms = ez_get_cur_milliseconds() + te->period;
 
-	int r = ez_min_heap_push(eventLoop->timeEventMinHeap, (void *)te);
+	int r = ez_min_heap_push(&eventLoop->timeEventMinHeap, (void *)te);
 	if (r != 0) {
 		ez_free(te);
 		log_error("push time event [id:%li] to min_heap failed!", id);
@@ -219,13 +216,13 @@ static int ez_time_event_find_cmp(void *args, void *data)
 
 void ez_delete_time_event(ezEventLoop * eventLoop, int64_t id)
 {
-	int index = ez_min_heap_find(eventLoop->timeEventMinHeap, ez_time_event_find_cmp, &id);
+	int index = ez_min_heap_find(&eventLoop->timeEventMinHeap, ez_time_event_find_cmp, &id);
 	if (index == MIN_HEAP_NOT_FUND) {
 		log_error("delete time event [id:%li] not find!", id);
 		return;
 	}
 	log_debug("delete time event [id:%li].", id);
-	ezTimeEvent *te = (ezTimeEvent *) ez_min_heap_delete(eventLoop->timeEventMinHeap, index);
+	ezTimeEvent *te = (ezTimeEvent *) ez_min_heap_delete(&eventLoop->timeEventMinHeap, index);
 	ez_free(te);
 }
 
@@ -274,13 +271,13 @@ static int process_time_events(ezEventLoop * eventLoop)
 	do {
 		now_ms = ez_get_cur_milliseconds();
 		if (!all_fired)
-			te = (ezTimeEvent *) ez_min_heap_min(eventLoop->timeEventMinHeap);
+			te = (ezTimeEvent *) ez_min_heap_min(&eventLoop->timeEventMinHeap);
 
 		if (te == NULL)
 			break;
 		if (all_fired || now_ms > te->when_ms) {
 			// 弹出最小值.
-			te = (ezTimeEvent *) ez_min_heap_pop(eventLoop->timeEventMinHeap);
+			te = (ezTimeEvent *) ez_min_heap_pop(&eventLoop->timeEventMinHeap);
 			log_debug("pop time event [id:%li].", te->id);
 			int retval = te->timeProc(eventLoop, te->id, te->clientData);
 			processed++;
@@ -298,7 +295,7 @@ static int process_time_events(ezEventLoop * eventLoop)
 				}
 				// 将原来位置的入min_heap中.
 				if (rePutTimeEvents[re_put_index] != NULL) {
-					put_min_result = ez_min_heap_push(eventLoop->timeEventMinHeap, rePutTimeEvents[re_put_index]);
+					put_min_result = ez_min_heap_push(&eventLoop->timeEventMinHeap, rePutTimeEvents[re_put_index]);
 					if (put_min_result != 0) {
 						log_error("push time event [id:%li] to min_heap failed!", rePutTimeEvents[re_put_index]->id);
 					}
@@ -316,7 +313,7 @@ static int process_time_events(ezEventLoop * eventLoop)
 
 	// re put to min_heap.
 	for (int i = 0; i < (over_size == 1 ? REPUT_ARRAY_SIZE : re_put_index); ++i) {
-		put_min_result = ez_min_heap_push(eventLoop->timeEventMinHeap, rePutTimeEvents[i]);
+		put_min_result = ez_min_heap_push(&eventLoop->timeEventMinHeap, rePutTimeEvents[i]);
 
 		if (put_min_result != 0) {
 			log_error("push time event [id:%li] to min_heap failed!", rePutTimeEvents[i]->id);
@@ -357,7 +354,7 @@ static int ez_process_events(ezEventLoop * eventLoop, int flags)
 		ezTimeEvent *shortest = NULL;
 		int j, tvp;
 		if (flags & AE_TIME_EVENTS) {
-			shortest = (ezTimeEvent *) ez_min_heap_min(eventLoop->timeEventMinHeap);
+			shortest = (ezTimeEvent *) ez_min_heap_min(&eventLoop->timeEventMinHeap);
 		}
 		if (shortest != NULL) {
 			tvp = (int)(shortest->when_ms - ez_get_cur_milliseconds());
