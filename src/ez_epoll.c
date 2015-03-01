@@ -108,6 +108,11 @@ static void ezApiBeforePoll(ezEventLoop *eventLoop) {
     ezApiAddEvent(eventLoop, state->evfd, AE_READABLE);
 }
 
+static void ezApiAfterPoll(ezEventLoop *eventLoop) {
+    ezApiState *state = eventLoop->apidata;
+    ezApiDelEvent(eventLoop, state->evfd, AE_READABLE);
+}
+
 static int ezApiPoll(ezEventLoop *eventLoop, int timeout) {
     ezApiState *state = eventLoop->apidata;
     int retval, numevents = 0;

@@ -248,6 +248,7 @@ void ez_run_event_loop(ezEventLoop * eventLoop)
 	while (!eventLoop->stop) {
 		ez_process_events(eventLoop, AE_ALL_EVENTS);
 	}
+	ezApiAfterPoll(eventLoop);
 }
 
 /* Process time events */

@@ -170,6 +170,7 @@ void stop_free_workers()
 
 void accept_handler(ezEventLoop * eventLoop, int s, void *clientData, int mask)
 {
+	EZ_NOTUSED(eventLoop);
 	EZ_NOTUSED(clientData);
 	EZ_NOTUSED(mask);
 
@@ -192,16 +193,12 @@ int time_out_handler(ezEventLoop * eventLoop, int64_t timeId, void *clientData)
 	return AE_TIMER_NEXT;
 }
 
-void init_boss(int s)
+void init_boss()
 {
 	log_info("create main event loop...");
 	boss.id = 0;
 	boss.thid = pthread_self();
 	boss.w_event = ez_create_event_loop(128);
-
-	ez_create_file_event(boss.w_event, s, AE_READABLE, accept_handler, NULL);
-	// test time out.
-	ez_create_time_event(boss.w_event, 5000, time_out_handler, NULL);
 }
 
 void run_boss()
@@ -229,8 +226,14 @@ int main(int argc, char **argv)
 	int s = ez_net_tcp_server(port, NULL, 1024);
 	log_info("server %d at port %d wait client ...", s, port);
 
-	init_boss(s);
+	init_boss();
 	init_workers();
+
+	// add s accept
+	ez_create_file_event(boss.w_event, s, AE_READABLE, accept_handler, NULL);
+	// test time out.
+	ez_create_time_event(boss.w_event, 5000, time_out_handler, NULL);
+
 	run_boss();
 	stop_free_boss();
 	stop_free_workers();
