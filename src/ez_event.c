@@ -363,7 +363,7 @@ static int ez_process_events(ezEventLoop * eventLoop, int flags)
 		if (shortest != NULL) {
 			tvp = (int)(shortest->when_ms - ez_get_cur_milliseconds());
 		} else {
-			tvp = -1;
+			tvp = -1; // wait for block
 		}
 
 		numevents = ezApiPoll(eventLoop, tvp);

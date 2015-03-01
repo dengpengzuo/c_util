@@ -1,3 +1,6 @@
+# cscope out files
+cscope.*
+
 # Object files
 *.o
 *.obj
