@@ -6,7 +6,7 @@ include_directories(
 
 # build exe
 add_executable(test_s test_s.c)
-target_link_libraries(test_s jemalloc ez_cutil_static)
+target_link_libraries(test_s jemalloc pthread ez_cutil_static)
 set_target_properties(test_s PROPERTIES LINKER_LANGUAGE "C" )
 set_target_properties(test_s PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${EXECUTABLE_OUTPUT_PATH}")
 

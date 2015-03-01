@@ -11,7 +11,7 @@ char read_char_from_stdin(void)
 {
 	char buf[2];
 	ssize_t nread;
-	int r ;
+	int r;
 
 	while (1) {
 		r = ez_net_read(STDIN_FILENO, buf, 2, &nread);

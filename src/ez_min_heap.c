@@ -5,8 +5,8 @@
 
 struct ezMinHeap_t {
 	gpointer *array;
-	int n;		/* array length */
-	int a;		/* array alloc length */
+	int n;			/* array length */
+	int a;			/* array alloc length */
 	cmpHandler *heap_comp_func;
 };
 
@@ -87,19 +87,20 @@ int ez_min_heap_find(ezMinHeap * m, findCmpHandler * find_cmp_proc, gpointer arg
 
 gpointer ez_min_heap_delete(ezMinHeap * m, int min_heap_idx)
 {
-    gpointer last, del;
-    if (m->n == 0 || min_heap_idx < 0 || min_heap_idx >= m->n) return NULL;
+	gpointer last, del;
+	if (m->n == 0 || min_heap_idx < 0 || min_heap_idx >= m->n)
+		return NULL;
 
-    last = m->array[--m->n];
-    del  = m->array[min_heap_idx];
+	last = m->array[--m->n];
+	del = m->array[min_heap_idx];
 
-    int parent = (min_heap_idx - 1) / 2;
-    if (min_heap_idx > 0 && m->heap_comp_func(m->array[parent], last))
-        ez_min_heap_shift_up_(m, min_heap_idx, last);
-    else
-        ez_min_heap_shift_down_(m, min_heap_idx, last);
+	int parent = (min_heap_idx - 1) / 2;
+	if (min_heap_idx > 0 && m->heap_comp_func(m->array[parent], last))
+		ez_min_heap_shift_up_(m, min_heap_idx, last);
+	else
+		ez_min_heap_shift_down_(m, min_heap_idx, last);
 
-    return del;
+	return del;
 }
 
 int ez_min_heap_resize_(ezMinHeap * m)

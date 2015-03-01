@@ -123,7 +123,7 @@ int ez_net_tcp_accept2(int s, char *ip, size_t ip_len, int *port)
 	socklen_t salen = sizeof(sa);
 	fd = ez_net_tcp_generic_accept(s, (struct sockaddr *)&sa, &salen);
 
-	if(fd == ANET_ERR)
+	if (fd == ANET_ERR)
 		return ANET_ERR;
 	else if (fd == ANET_EAGAIN)
 		return ANET_EAGAIN;
@@ -133,13 +133,13 @@ int ez_net_tcp_accept2(int s, char *ip, size_t ip_len, int *port)
 	if (sa.ss_family == AF_INET) {
 		struct sockaddr_in *s = (struct sockaddr_in *)&sa;
 		if (ip)
-			inet_ntop(AF_INET, (void *)&(s->sin_addr), ip, ip_len);
+			inet_ntop(AF_INET, (void *)&(s->sin_addr), ip, (socklen_t)ip_len);
 		if (port)
 			*port = ntohs(s->sin_port);
 	} else {
 		struct sockaddr_in6 *s = (struct sockaddr_in6 *)&sa;
 		if (ip)
-			inet_ntop(AF_INET6, (void *)&(s->sin6_addr), ip, ip_len);
+			inet_ntop(AF_INET6, (void *)&(s->sin6_addr), ip, (socklen_t)ip_len);
 		if (port)
 			*port = ntohs(s->sin6_port);
 	}
@@ -188,7 +188,8 @@ static int ez_net_tcp_connect_ex(const char *addr, int port, int flags)
 			if (errno == EINPROGRESS && (flags & ANET_CONNECT_NONBLOCK))
 				goto end;
 			else {
-				log_stderr("connect to host[%s:%d] failed, cause:[%s]!", addr, port, strerror(errno));
+				log_stderr("connect to host[%s:%d] failed, cause:[%s]!", addr, port,
+					   strerror(errno));
 			}
 			// close
 			if (s != ANET_ERR) {
@@ -381,7 +382,7 @@ int ez_net_resolve_host_ip(char *host, char *ipbuf, size_t ipbuf_len)
 
 /* Like read(2) but make sure 'count' is read before to return
  * (unless error or EOF condition is encountered) */
-int ez_net_read(int fd, char *buf, size_t bufsize, ssize_t *nbytes)
+int ez_net_read(int fd, char *buf, size_t bufsize, ssize_t * nbytes)
 {
 	ssize_t r = read(fd, buf, bufsize);
 	if (r == 0) {
@@ -400,7 +401,7 @@ int ez_net_read(int fd, char *buf, size_t bufsize, ssize_t *nbytes)
 
 /* Like write(2) but make sure 'count' is read before to return
  * (unless error is encountered) */
-int ez_net_write(int fd, char *buf, size_t bufsize, ssize_t *nbytes)
+int ez_net_write(int fd, char *buf, size_t bufsize, ssize_t * nbytes)
 {
 	ssize_t r = write(fd, buf, bufsize);
 	if (r == 0) {
@@ -408,7 +409,7 @@ int ez_net_write(int fd, char *buf, size_t bufsize, ssize_t *nbytes)
 	} else if (r == -1) {
 		*nbytes = 0;
 		if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
-			return ANET_EAGAIN; /* 非阻塞模式 */
+			return ANET_EAGAIN;	/* 非阻塞模式 */
 		else
 			return ANET_ERR;
 	} else {
