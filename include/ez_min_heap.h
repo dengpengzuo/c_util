@@ -7,10 +7,11 @@ typedef void *gpointer;
 
 typedef int cmpHandler(gpointer pv, gpointer nv);
 typedef int findCmpHandler(gpointer args, gpointer data);
+typedef void freeValueHandler(gpointer v);
 
 typedef struct ezMinHeap_t ezMinHeap;
 
-ezMinHeap *ez_min_heap_init(cmpHandler * handler);
+ezMinHeap *ez_min_heap_init(cmpHandler * handler, freeValueHandler * free_handler);
 
 void ez_min_heap_free(ezMinHeap * m);
 
