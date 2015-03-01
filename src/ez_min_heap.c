@@ -38,6 +38,12 @@ ezMinHeap *ez_min_heap_init(cmpHandler * cmp_handler, freeValueHandler * free_ha
 
 void ez_min_heap_free(ezMinHeap * m)
 {
+	// 调用heap中对象的release挂勾.
+	if (m->heap_free_func != NULL) {
+		for (int i = 0; i < m->n; ++i)
+			if (m->array[i] != NULL)
+				m->heap_free_func(m->array[i]);
+	}
 	ez_free(m->array);
 	ez_free(m);
 }
