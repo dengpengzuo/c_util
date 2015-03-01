@@ -8,6 +8,7 @@ struct ezMinHeap_t {
 	int n;			/* array length */
 	int a;			/* array alloc length */
 	cmpHandler *heap_comp_func;
+	freeValueHandler *heap_free_func;
 };
 
 static int ez_min_heap_resize_(ezMinHeap * m);
@@ -16,10 +17,10 @@ static void ez_min_heap_shift_up_(ezMinHeap * m, int hole_index, gpointer v);
 
 static void ez_min_heap_shift_down_(ezMinHeap * m, int hole_index, gpointer v);
 
-ezMinHeap *ez_min_heap_init(cmpHandler * handler)
+ezMinHeap *ez_min_heap_init(cmpHandler * cmp_handler, freeValueHandler * free_handler)
 {
 	ezMinHeap *m = NULL;
-	if (handler == NULL)
+	if (cmp_handler == NULL)
 		return m;
 	m = ez_malloc(sizeof(ezMinHeap));
 	m->array = ez_malloc(sizeof(gpointer) * MIN_HEAP_SIZE);
@@ -30,7 +31,8 @@ ezMinHeap *ez_min_heap_init(cmpHandler * handler)
 
 	m->a = MIN_HEAP_SIZE;
 	m->n = 0;
-	m->heap_comp_func = handler;
+	m->heap_comp_func = cmp_handler;
+	m->heap_free_func = free_handler;
 	return m;
 }
 
