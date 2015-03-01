@@ -138,11 +138,11 @@ void ez_delete_event_loop(ezEventLoop * eventLoop)
 	ez_free(eventLoop);
 }
 
-void ez_stop(ezEventLoop * eventLoop)
+void ez_stop_event_loop(ezEventLoop *eventLoop)
 {
 	if (!eventLoop)
 		return;
-	eventLoop->stop = 1;
+	ezApiStop(eventLoop);
 }
 
 int ez_create_file_event(ezEventLoop * eventLoop, int fd, int mask, ezFileProc * proc,
@@ -243,7 +243,8 @@ void ez_run_event_loop(ezEventLoop * eventLoop)
 {
 	if (!eventLoop)
 		return;
-	eventLoop->stop = 0;
+
+	ezApiBeforePoll(eventLoop);
 	while (!eventLoop->stop) {
 		ez_process_events(eventLoop, AE_ALL_EVENTS);
 	}

@@ -99,7 +99,7 @@ void stop_ez_workers()
 {
 	for (int i = 0; i < WORKER_SIZE; ++i) {
 		log_info("send worker id: %d exit event loop .", workers[i].id);
-		ez_stop(workers[i].w_event);
+		ez_stop_event_loop(workers[i].w_event);
 	}
 	for (int i = 0; i < WORKER_SIZE; ++i) {
 		log_info("wait worker id: %d thread exit.", workers[i].id);
@@ -146,7 +146,7 @@ void read_char_from_stdin(ezEventLoop * eventLoop, int fd, void *clientData, int
 		if (buf[0] == 'q' || buf[0] == 'Q') {
 			log_info("good bye!");
 			ez_delete_file_event(eventLoop, fd, AE_READABLE);
-			ez_stop(eventLoop);
+			ez_stop_event_loop(eventLoop); // 停止 main_event
 		}
 	}
 }
@@ -172,7 +172,7 @@ int main(int argc, char **argv)
 	ezEventLoop *main_event = ez_create_event_loop(128);
 	ez_create_file_event(main_event, s, AE_READABLE, accept_handler, NULL);
 	ez_create_file_event(main_event, s6, AE_READABLE, accept_handler, NULL);
-	ez_create_time_event(main_event, 1000, time_out_handler, NULL);
+	ez_create_time_event(main_event, 5000, time_out_handler, NULL);
 	ez_create_file_event(main_event, STDIN_FILENO, AE_READABLE, read_char_from_stdin, NULL);
 	// 初始化 worker thread.
 	init_ez_workers();

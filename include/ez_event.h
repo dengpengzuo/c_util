@@ -33,7 +33,7 @@ void ez_delete_file_event(ezEventLoop * eventLoop, int fd, int mask);
 int64_t ez_create_time_event(ezEventLoop * eventLoop, int64_t period, ezTimeProc * proc, void *clientData);
 void ez_delete_time_event(ezEventLoop * eventLoop, int64_t time_id);
 
-void ez_stop(ezEventLoop * eventLoop);
+void ez_stop_event_loop(ezEventLoop *eventLoop);
 
 void ez_run_event_loop(ezEventLoop * eventLoop);
 
