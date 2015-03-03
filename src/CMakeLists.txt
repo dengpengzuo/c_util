@@ -11,6 +11,7 @@ set(SRC_LIST
     ez_log.c
     ez_malloc.c
     ez_min_heap.c
+    ez_rbtree.c
     ez_net.c
     ez_util.c
 )

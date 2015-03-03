@@ -13,7 +13,8 @@
 #define MIN(a, b)        ((a) < (b) ? (a) : (b))
 #define MAX(a, b)        ((a) > (b) ? (a) : (b))
 
-#define ez_offsetof(TYPE, MEMBER)      ((uintptr_t)&(((TYPE *)0)->MEMBER))
+#define ez_offsetof(TYPE, MEMBER)             ((uintptr_t)&(((TYPE *)0)->MEMBER))
+#define ez_container_of(ptr, type, member)    ((type *)((uint8_t*)ptr - ez_offsetof(type, member)))
 /*
  * Make data 'd' or pointer 'p', n-byte aligned, where n is a power of 2
  * of 2.
