@@ -6,6 +6,7 @@
 #include <string.h>
 #include <time.h>
 #include <errno.h>
+#include <ez_rbtree.h>
 
 #include "ez_malloc.h"
 #include "ez_util.h"

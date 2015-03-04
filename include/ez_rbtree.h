@@ -3,16 +3,12 @@
 
 #include <stdint.h>
 
-typedef int rbtree_key_t;
-typedef void *rbtree_value_t;
-
 typedef struct ezRBTreeNode_t ezRBTreeNode;
 typedef struct ezRBTree_t ezRBTree;
+typedef int (*rbTreeNodeCompare)(ezRBTreeNode *newNode, ezRBTreeNode *existNode);
+typedef int (*findCompareKey)(ezRBTreeNode *node, void *find_args);
 
 struct ezRBTreeNode_t {
-	rbtree_key_t   key;
-	rbtree_value_t value;
-
 	ezRBTreeNode  *left;
 	ezRBTreeNode  *right;
 	ezRBTreeNode  *parent;
@@ -22,17 +18,16 @@ struct ezRBTreeNode_t {
 struct ezRBTree_t {
 	ezRBTreeNode *root;
 	ezRBTreeNode *sentinel;
+	rbTreeNodeCompare  node_cmp_proc;
 };
 
-void rbtree_init(ezRBTree * tree, ezRBTreeNode * sentinel);
+void rbtree_init(ezRBTree * tree, ezRBTreeNode * sentinel, rbTreeNodeCompare node_cmp_proc);
 
 void rbtree_insert(ezRBTree * tree, ezRBTreeNode * node);
 
 void rbtree_delete(ezRBTree * tree, ezRBTreeNode * node);
 
-ezRBTreeNode * rbtree_find_node(ezRBTree * tree, rbtree_key_t key);
-
-rbtree_value_t rbtree_find_value(ezRBTree * tree, rbtree_key_t key);
+ezRBTreeNode * rbtree_find_node(ezRBTree * tree, findCompareKey find_proc, void * find_args);
 
 ezRBTreeNode * rbtree_min_node(ezRBTree * tree);
 
