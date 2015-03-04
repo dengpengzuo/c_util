@@ -18,19 +18,19 @@ typedef enum {
 	AE_WRITABLE = 0x2
 } EVENT_MASK;
 
-typedef void ezFileProc(ezEventLoop * eventLoop, int fd, void *clientData, int mask);
-typedef int ezTimeProc(ezEventLoop * eventLoop, int64_t timeId, void *clientData);
+typedef void (*ezFileProc)(ezEventLoop * eventLoop, int fd, void *clientData, int mask);
+typedef int (*ezTimeProc)(ezEventLoop * eventLoop, int64_t timeId, void *clientData);
 
 /* Prototypes */
 ezEventLoop *ez_create_event_loop(int setsize);
 void ez_delete_event_loop(ezEventLoop * eventLoop);
 
 /* socket event */
-int ez_create_file_event(ezEventLoop * eventLoop, int fd, int mask, ezFileProc * proc, void *clientData);
+int ez_create_file_event(ezEventLoop * eventLoop, int fd, int mask, ezFileProc proc, void *clientData);
 void ez_delete_file_event(ezEventLoop * eventLoop, int fd, int mask);
 
 /* time out event*/
-int64_t ez_create_time_event(ezEventLoop * eventLoop, int64_t period, ezTimeProc * proc, void *clientData);
+int64_t ez_create_time_event(ezEventLoop * eventLoop, int64_t period, ezTimeProc proc, void *clientData);
 void ez_delete_time_event(ezEventLoop * eventLoop, int64_t time_id);
 
 void ez_stop_event_loop(ezEventLoop *eventLoop);

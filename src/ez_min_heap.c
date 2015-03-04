@@ -9,7 +9,7 @@ static void ez_min_heap_shift_up_(ezMinHeap * m, int hole_index, gpointer v);
 
 static void ez_min_heap_shift_down_(ezMinHeap * m, int hole_index, gpointer v);
 
-void ez_min_heap_init(ezMinHeap * m, cmpHandler * cmp_handler, freeValueHandler * free_handler)
+void ez_min_heap_init(ezMinHeap * m, cmpHandler cmp_handler, freeValueHandler free_handler)
 {
 	m->array = ez_malloc(sizeof(gpointer) * MIN_HEAP_SIZE);
 	m->a = MIN_HEAP_SIZE;
@@ -60,14 +60,14 @@ gpointer ez_min_heap_min(ezMinHeap * m)
 	return m->array[0];
 }
 
-int ez_min_heap_find(ezMinHeap * m, findCmpHandler * find_cmp_proc, gpointer args)
+int ez_min_heap_find(ezMinHeap * m, findCmpHandler find_cmp_proc, gpointer args)
 {
 	int i = 0, r = 0;
 	if (m->n == 0)
 		return MIN_HEAP_NOT_FUND;
 
 	for (; i < m->n; ++i) {
-		r = find_cmp_proc(args, m->array[i]);
+		r = find_cmp_proc(m->array[i], args);
 		if (r)
 			break;
 	}

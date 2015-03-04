@@ -17,8 +17,8 @@
 /* File event structure */
 typedef struct ezFileEvent_t {
 	int mask;		/* one of AE_(READABLE|WRITABLE) */
-	ezFileProc *rfileProc;
-	ezFileProc *wfileProc;
+	ezFileProc rfileProc;
+	ezFileProc wfileProc;
 	void *clientData;
 } ezFileEvent;
 
@@ -27,7 +27,7 @@ typedef struct ezTimeEvent_t {
 	int64_t id;		/* time event identifier. */
 	int64_t period;		/* milliseconds */
 	int64_t when_ms;	/* Firing milliseconds */
-	ezTimeProc *timeProc;
+	ezTimeProc timeProc;
 	void *clientData;
 } ezTimeEvent;
 
@@ -137,8 +137,7 @@ void ez_stop_event_loop(ezEventLoop *eventLoop)
 	ezApiStop(eventLoop);
 }
 
-int ez_create_file_event(ezEventLoop * eventLoop, int fd, int mask, ezFileProc * proc,
-			 void *clientData)
+int ez_create_file_event(ezEventLoop * eventLoop, int fd, int mask, ezFileProc proc, void *clientData)
 {
 	if (fd >= eventLoop->setsize) {
 		return AE_ERR;
@@ -184,7 +183,7 @@ void ez_delete_file_event(ezEventLoop * eventLoop, int fd, int mask)
  * eventLoop    事件loop
  * milliseconds 启动时间
  */
-int64_t ez_create_time_event(ezEventLoop * eventLoop, int64_t period, ezTimeProc * proc, void *clientData)
+int64_t ez_create_time_event(ezEventLoop * eventLoop, int64_t period, ezTimeProc proc, void *clientData)
 {
 	int64_t id = eventLoop->timeNextId++;
 	ezTimeEvent *te = ez_malloc(sizeof(*te));
@@ -206,10 +205,10 @@ int64_t ez_create_time_event(ezEventLoop * eventLoop, int64_t period, ezTimeProc
 	return id;
 }
 
-static int ez_time_event_find_cmp(void *args, void *data)
+static int ez_time_event_find_cmp(void *data, void *args)
 {
-	int64_t *find_time_id = (int64_t *) args;
 	ezTimeEvent *te = (ezTimeEvent *) data;
+	int64_t *find_time_id = (int64_t *) args;
 
 	return (*find_time_id == te->id) ? 1 : 0;
 }
