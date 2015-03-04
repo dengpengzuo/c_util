@@ -15,8 +15,8 @@ struct ezMinHeap_t {
 	gpointer *array;
 	int n;			/* array length */
 	int a;			/* array alloc length */
-	cmpHandler *heap_comp_func;
-	freeValueHandler *heap_free_func;
+	cmpHandler heap_comp_func;
+	freeValueHandler heap_free_func;
 };
 
 void ez_min_heap_init(ezMinHeap *m, cmpHandler handler, freeValueHandler free_handler);
