@@ -1,7 +1,7 @@
 #include "ez_malloc.h"
 #include "ez_min_heap.h"
 
-#define  MIN_HEAP_SIZE      1024
+#define  MIN_HEAP_SIZE      64
 
 static int ez_min_heap_resize_(ezMinHeap * m);
 
