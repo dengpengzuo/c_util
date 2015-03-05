@@ -221,7 +221,7 @@ int main(int argc, char **argv)
 	EZ_NOTUSED(argv);
 
 	cust_signal_init();
-	log_init(LOG_INFO, NULL);
+	log_init(LOG_VVVERB, NULL);
 
 	int s = ez_net_tcp_server(port, NULL, 1024);
 	log_info("server %d at port %d wait client ...", s, port);

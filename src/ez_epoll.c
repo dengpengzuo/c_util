@@ -57,15 +57,15 @@ static void ezApiDelete(ezEventLoop *eventLoop) {
     ez_free(state);
 }
 
-static int ezApiAddEvent(ezEventLoop *eventLoop, int fd, int mask) {
+static int ezApiAddEvent(ezEventLoop *eventLoop, int fd, int mask, int old_mask) {
     ezApiState *state = eventLoop->apidata;
     struct epoll_event ee;
     /* If the fd was already monitored for some event, we need a MOD
      * operation. Otherwise we need an ADD operation. */
-    int op = eventLoop->events[fd].mask == AE_NONE ? EPOLL_CTL_ADD : EPOLL_CTL_MOD;
+    int op = (old_mask == AE_NONE) ? EPOLL_CTL_ADD : EPOLL_CTL_MOD;
 
     ee.events = 0;
-    mask |= eventLoop->events[fd].mask;    /* Merge old events */
+    mask |= old_mask ;    /* Merge old events */
     if (mask & AE_READABLE)
         ee.events |= EPOLLIN;
     if (mask & AE_WRITABLE)
@@ -77,10 +77,10 @@ static int ezApiAddEvent(ezEventLoop *eventLoop, int fd, int mask) {
     return AE_OK;
 }
 
-static void ezApiDelEvent(ezEventLoop *eventLoop, int fd, int delmask) {
+static void ezApiDelEvent(ezEventLoop *eventLoop, int fd, int delmask, int oldmask) {
     ezApiState *state = eventLoop->apidata;
     struct epoll_event ee;
-    int mask = eventLoop->events[fd].mask & (~delmask);
+    int mask = oldmask & (~delmask);
 
     ee.events = 0;
     if (mask & AE_READABLE)
@@ -105,12 +105,12 @@ static void ezApiStop(ezEventLoop *eventLoop) {
 
 static void ezApiBeforePoll(ezEventLoop *eventLoop) {
     ezApiState *state = eventLoop->apidata;
-    ezApiAddEvent(eventLoop, state->evfd, AE_READABLE);
+    ezApiAddEvent(eventLoop, state->evfd, AE_READABLE, AE_NONE);
 }
 
 static void ezApiAfterPoll(ezEventLoop *eventLoop) {
     ezApiState *state = eventLoop->apidata;
-    ezApiDelEvent(eventLoop, state->evfd, AE_READABLE);
+    ezApiDelEvent(eventLoop, state->evfd, AE_READABLE, AE_READABLE);
 }
 
 static int ezApiPoll(ezEventLoop *eventLoop, int timeout) {
@@ -124,7 +124,7 @@ static int ezApiPoll(ezEventLoop *eventLoop, int timeout) {
 
         numevents = retval;
         i = 0;
-        for (j = 0; j < numevents; j++) {
+        for (j = 0; j < retval; j++) {
             struct epoll_event *e = state->events + j;
             int what = e->events;
 
@@ -153,6 +153,7 @@ static int ezApiPoll(ezEventLoop *eventLoop, int timeout) {
             // do inner event fd command.
             if (e->data.fd == state->evfd) {
                 ezApiDoEventfdCmd(eventLoop);
+                -- numevents; // 却掉eventfd数.
                 continue;
             }
 
