@@ -267,7 +267,7 @@ static int process_time_events(ezEventLoop * eventLoop)
 		all_fired = 1;
 	}
 	eventLoop->lastTime = now;
-
+	memset(rePutTimeEvents, 0, REPUT_ARRAY_SIZE * sizeof(ezTimeEvent *));
 	do {
 		now_ms = ez_get_cur_milliseconds();
 		if (!all_fired)

@@ -35,7 +35,7 @@ static void cust_signal_handler(int signo);
 static struct ez_signal cust_signals[] = {
     { SIGHUP,  "SIGHUP",  0, SIG_IGN },
     { SIGPIPE, "SIGPIPE", 0, SIG_IGN },
-    { SIGINT,  "SIGINT",  0, cust_signal_handler },
+    { SIGQUIT, "SIGQUIT", 0, cust_signal_handler },
     { 0,       "NULL",    0, NULL }
 };
 
@@ -74,7 +74,7 @@ static void cust_signal_handler(int signo)
 	if (signo == 0) return;
 
     switch (signo) {
-    case SIGINT:
+    case SIGQUIT:
 		ez_stop_event_loop(boss.w_event);
         break;
     default:

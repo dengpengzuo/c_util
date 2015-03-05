@@ -39,6 +39,10 @@ int ez_min_heap_push(ezMinHeap * m, gpointer v)
 	if ((m->n == m->a) && ez_min_heap_resize_(m)) {
 		return -1;
 	}
+	if (m->n == 0) {
+		m->array[m->n++] = v;
+		return 0;
+	}
 	ez_min_heap_shift_up_(m, m->n++, v);
 	return 0;
 }
@@ -82,6 +86,7 @@ gpointer ez_min_heap_delete(ezMinHeap * m, int min_heap_idx)
 
 	last = m->array[--m->n];
 	del = m->array[min_heap_idx];
+	if (m->n == 0) return del;
 
 	int parent = (min_heap_idx - 1) / 2;
 	if (min_heap_idx > 0 && m->heap_comp_func(m->array[parent], last))
