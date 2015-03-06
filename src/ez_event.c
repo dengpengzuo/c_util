@@ -20,7 +20,6 @@ typedef struct ezFileEvent_t {
 	int fd ;
 	int mask;		/* one of AE_(READABLE|WRITABLE) */
 	ezFileProc rfileProc;
-	ezFileProc wfileProc;
 	void *clientData;
 	ezRBTreeNode rb_node; /* rbtree node */
 } ezFileEvent;
@@ -198,19 +197,19 @@ int ez_create_file_event(ezEventLoop * eventLoop, int fd, int mask, ezFileProc p
 		fe->fd = fd;
 		fe->mask = AE_NONE;
 		fe->clientData = clientData;
+
+		++ eventLoop->count;
 	}
 
 	if (ezApiAddEvent(eventLoop, fd, mask, fe->mask) == -1) {
         // 加入到回收链表头
 		ez_free(fe);
+		-- eventLoop->count;
 		return AE_ERR;
 	}
 
 	fe->mask |= mask;
-	if (mask & AE_READABLE)
-		fe->rfileProc = proc;
-	if (mask & AE_WRITABLE)
-		fe->wfileProc = proc;
+	fe->rfileProc = proc;
 
 	rbtree_insert(&eventLoop->rbtree_events, &(fe->rb_node));
 	return AE_OK;
@@ -229,6 +228,7 @@ void ez_delete_file_event(ezEventLoop * eventLoop, int fd, int mask)
 	fe->mask = fe->mask & (~mask);
 	if (fe->mask == AE_NONE) {
 		rbtree_delete(&eventLoop->rbtree_events, &fe->rb_node);
+		-- eventLoop->count;
 		put_to_free_file_events(eventLoop, fe);
 	}
 }
@@ -421,11 +421,9 @@ static int ez_process_events(ezEventLoop * eventLoop, int flags)
 			int fd = eventLoop->fired[j].fd;
 			ezFileEvent *fe = ez_fund_file_event(eventLoop, fd);
 
-			if (fe->mask & fired_mask & AE_READABLE) {
+			if (fe->mask != AE_NONE && ((fired_mask & AE_READABLE) || (fired_mask & AE_WRITABLE))) {
+				// 只击发一次，由函数中实行中区分出是<read|write>操作.
 				fe->rfileProc(eventLoop, fd, fe->clientData, fired_mask);
-			}
-			if (fe->mask & fired_mask & AE_WRITABLE) {
-				fe->wfileProc(eventLoop, fd, fe->clientData, fired_mask);
 			}
 			processed++;
 		}
