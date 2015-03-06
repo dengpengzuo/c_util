@@ -19,7 +19,7 @@
 #include "ez_log.h"
 
 /* create server */
-static int anetBind(int s, struct sockaddr *sa, socklen_t len)
+static int ez_net_bind(int s, struct sockaddr *sa, socklen_t len)
 {
 	if (bind(s, sa, len) == -1) {
 		log_error("%d > bind: %s", s, strerror(errno));
@@ -67,7 +67,7 @@ static int _ez_net_tcp_server(int port, char *bindaddr, int af, int backlog)
 			goto error;
 		if (ez_net_set_non_block(s) == ANET_ERR)
 			goto error;
-		if (anetBind(s, p->ai_addr, p->ai_addrlen) == ANET_ERR)
+		if (ez_net_bind(s, p->ai_addr, p->ai_addrlen) == ANET_ERR)
 			goto error;
 		if (ez_net_listen(s, backlog) == ANET_ERR)
 			goto error;
