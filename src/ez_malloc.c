@@ -67,6 +67,7 @@ void *zmalloc(size_t size)
 	if (!ptr)
 		zmalloc_oom_handler(size);
 	update_zmalloc_stat_alloc(__zmalloc_size(ptr));
+	// 分配后将其清零.
 	memset(ptr, 0, size);
 	return ptr;
 }
@@ -79,7 +80,7 @@ void *zcalloc(size_t count, size_t size)
 	if (!ptr)
 		zmalloc_oom_handler(nSize);
 	update_zmalloc_stat_alloc(__zmalloc_size(ptr));
-	memset(ptr, 0, nSize);
+
 	return ptr;
 }
 
