@@ -50,10 +50,11 @@ struct ezEventLoop_t {
 	void *apidata;		/* This is used for event polling API specific data */
 
 	int setsize;		/* max number of file descriptors tracked */
-	int count;
-	ezRBTree rbtree_events;
-	ezRBTreeNode rbnode_sentinel;
-	ezRBTreeNode *free_events;	/* free linked list */
+	int count;			/* add file event count */
+
+	ezRBTree rbtree_events;		  /* rbtree file events */
+	ezRBTreeNode rbnode_sentinel; /* rbtree sentinel node */
+	ezRBTreeNode *free_events;    /* free rbtree node linked list (node->parent) */
 
 	// time out event fields.
 	time_t lastTime;	/* Used to detect system clock skew */
@@ -121,16 +122,14 @@ ezEventLoop *ez_create_event_loop(int setsize)
 	if (!eventLoop)
 		goto err;
 
-	rbtree_init(&eventLoop->rbtree_events, &eventLoop->rbnode_sentinel,
-		    file_event_compare_proc);
+	rbtree_init(&eventLoop->rbtree_events, &eventLoop->rbnode_sentinel, file_event_compare_proc);
 	eventLoop->free_events = NULL;
 
 	eventLoop->fired = (ezFiredEvent *) ez_malloc(sizeof(ezFiredEvent) * setsize);
 	if (eventLoop->fired == NULL)
 		goto err;
 
-	ez_min_heap_init(&eventLoop->timeEventMinHeap, ez_time_event_compare_proc,
-			 ez_time_event_free_proc);
+	ez_min_heap_init(&eventLoop->timeEventMinHeap, ez_time_event_compare_proc, ez_time_event_free_proc);
 
 	eventLoop->setsize = setsize;
 	eventLoop->lastTime = time(NULL);
@@ -230,7 +229,7 @@ int ez_create_file_event(ezEventLoop * eventLoop, int fd, int mask, ezFileProc p
 		return AE_ERR;
 	}
 
-    if(add) eventLoop->count += 1;
+	if (add) ++(eventLoop->count);
 
 	rbtree_insert(&eventLoop->rbtree_events, &(fe->rb_node));
     
@@ -250,7 +249,7 @@ void ez_delete_file_event(ezEventLoop * eventLoop, int fd, int mask)
 	fe->mask = fe->mask & (~mask);
 	if (fe->mask == AE_NONE) {
 		rbtree_delete(&eventLoop->rbtree_events, &fe->rb_node);
-		--eventLoop->count;
+		--(eventLoop->count);
 		put_to_free_file_events(eventLoop, fe);
 	}
 }

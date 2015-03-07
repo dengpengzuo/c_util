@@ -6,6 +6,8 @@
 ##  编译
     mkdir build && cd build && cmake .. && make
 
+    ./bin/test_s > ./log/test_s.log 2>&1 < /dev/null &
+
 ##  下一步计划
     * 提供类似于netty的bytebuf的工具.
     * 提供一个基于socket event的io框架.
