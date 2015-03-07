@@ -17,14 +17,14 @@
 
 /* File event structure */
 typedef struct ezFileEvent_t {
-	int fd ;
+	int fd;
 	int mask;		/* one of AE_(READABLE|WRITABLE) */
 	ezFileProc rfileProc;
 	void *clientData;
-	ezRBTreeNode rb_node; /* rbtree node */
+	ezRBTreeNode rb_node;	/* rbtree node */
 } ezFileEvent;
 
-static inline ezFileEvent * cast_to(ezRBTreeNode *node)
+static inline ezFileEvent *cast_to(ezRBTreeNode * node)
 {
 	return ez_container_of(node, ezFileEvent, rb_node);
 }
@@ -47,20 +47,20 @@ typedef struct ezFiredEvent_t {
 /* State of an event based program */
 struct ezEventLoop_t {
 	int stop;
-	void *apidata;					/* This is used for event polling API specific data */
+	void *apidata;		/* This is used for event polling API specific data */
 
-	int setsize;					/* max number of file descriptors tracked */
+	int setsize;		/* max number of file descriptors tracked */
 	int count;
 	ezRBTree rbtree_events;
 	ezRBTreeNode rbnode_sentinel;
-	ezRBTreeNode *free_events;		/* free linked list */
+	ezRBTreeNode *free_events;	/* free linked list */
 
 	// time out event fields.
-	time_t lastTime;				/* Used to detect system clock skew */
+	time_t lastTime;	/* Used to detect system clock skew */
 	int64_t timeNextId;
-	ezMinHeap timeEventMinHeap;		/* Registered time events */
+	ezMinHeap timeEventMinHeap;	/* Registered time events */
 
-	ezFiredEvent *fired;			/* Fired events */
+	ezFiredEvent *fired;	/* Fired events */
 };
 
 // linux epoll code
@@ -68,9 +68,10 @@ struct ezEventLoop_t {
 
 static ezFileEvent *ez_fund_file_event(ezEventLoop * eventLoop, int fd);
 
-static inline void put_to_free_file_events(ezEventLoop * eventLoop, ezFileEvent *e)
+static inline void put_to_free_file_events(ezEventLoop * eventLoop, ezFileEvent * e)
 {
-	if(e == NULL) return;
+	if (e == NULL)
+		return;
 	e->rb_node.parent = eventLoop->free_events;
 	eventLoop->free_events = &(e->rb_node);
 }
@@ -91,23 +92,24 @@ static void ez_time_event_free_proc(void *p)
 	ez_free(pte);
 }
 
-static int file_event_compare_proc(ezRBTreeNode *newNode, ezRBTreeNode *existNode)
+static int file_event_compare_proc(ezRBTreeNode * newNode, ezRBTreeNode * existNode)
 {
-	ezFileEvent * newEvent = cast_to(newNode);
-	ezFileEvent * existEvent = cast_to(existNode);
+	ezFileEvent *newEvent = cast_to(newNode);
+	ezFileEvent *existEvent = cast_to(existNode);
 	return newEvent->fd > existEvent->fd ? 1 : (newEvent->fd < existEvent->fd ? -1 : 0);
 }
 
-static int file_event_find_compare_proc(ezRBTreeNode *node, void *find_args)
+static int file_event_find_compare_proc(ezRBTreeNode * node, void *find_args)
 {
-	int fd = *((int *) find_args);
+	int fd = *((int *)find_args);
 	ezFileEvent *fe = cast_to(node);
 	return fe->fd == fd ? 0 : (fe->fd > fd ? 1 : -1);
 }
 
-static ezFileEvent *ez_fund_file_event(ezEventLoop *eventLoop, int fd)
+static ezFileEvent *ez_fund_file_event(ezEventLoop * eventLoop, int fd)
 {
-	ezRBTreeNode *n = rbtree_find_node(&eventLoop->rbtree_events, file_event_find_compare_proc, (void *) &fd);
+	ezRBTreeNode *n =
+	    rbtree_find_node(&eventLoop->rbtree_events, file_event_find_compare_proc, (void *)&fd);
 	return n == NULL ? NULL : cast_to(n);
 }
 
@@ -119,14 +121,16 @@ ezEventLoop *ez_create_event_loop(int setsize)
 	if (!eventLoop)
 		goto err;
 
-	rbtree_init(&eventLoop->rbtree_events, &eventLoop->rbnode_sentinel, file_event_compare_proc);
+	rbtree_init(&eventLoop->rbtree_events, &eventLoop->rbnode_sentinel,
+		    file_event_compare_proc);
 	eventLoop->free_events = NULL;
 
 	eventLoop->fired = (ezFiredEvent *) ez_malloc(sizeof(ezFiredEvent) * setsize);
 	if (eventLoop->fired == NULL)
 		goto err;
 
-	ez_min_heap_init(&eventLoop->timeEventMinHeap, ez_time_event_compare_proc, ez_time_event_free_proc);
+	ez_min_heap_init(&eventLoop->timeEventMinHeap, ez_time_event_compare_proc,
+			 ez_time_event_free_proc);
 
 	eventLoop->setsize = setsize;
 	eventLoop->lastTime = time(NULL);
@@ -148,8 +152,8 @@ ezEventLoop *ez_create_event_loop(int setsize)
 
 void ez_delete_event_loop(ezEventLoop * eventLoop)
 {
-	ezRBTreeNode * i;
-	ezFileEvent  * e;
+	ezRBTreeNode *i;
+	ezFileEvent *e;
 	if (!eventLoop)
 		return;
 	ezApiDelete(eventLoop);
@@ -171,16 +175,20 @@ void ez_delete_event_loop(ezEventLoop * eventLoop)
 	ez_free(eventLoop);
 }
 
-void ez_stop_event_loop(ezEventLoop *eventLoop)
+void ez_stop_event_loop(ezEventLoop * eventLoop)
 {
 	if (!eventLoop)
 		return;
 	ezApiStop(eventLoop);
 }
 
-int ez_create_file_event(ezEventLoop * eventLoop, int fd, int mask, ezFileProc proc, void *clientData)
+int ez_create_file_event(ezEventLoop * eventLoop, int fd, int mask, ezFileProc proc,
+			 void *clientData)
 {
 	ezFileEvent *fe = ez_fund_file_event(eventLoop, fd);
+	int oldmask;
+    int add;
+
 	if (fe == NULL) {
 		if (eventLoop->count >= eventLoop->setsize) {
 			log_error("event loop create file event count's over setsize:%d !", eventLoop->setsize);
@@ -194,24 +202,38 @@ int ez_create_file_event(ezEventLoop * eventLoop, int fd, int mask, ezFileProc p
 		} else {
 			fe = ez_malloc(sizeof(ezFileEvent));
 		}
-		fe->fd = fd;
-		fe->mask = AE_NONE;
-		fe->clientData = clientData;
 
-		++ eventLoop->count;
+        add = 1 ;
+		oldmask = AE_NONE;
+
+		fe->fd = fd;
+		fe->mask = mask;
+		fe->rfileProc = proc;
+		fe->clientData = clientData;
+	} else {
+		add = 0 ;
+		oldmask = fe->mask;
+
+		fe->mask |= mask;
+		if (fe->rfileProc != proc) {
+			log_warn("file fd:%d add new mask event's proc not same!", fe->fd);
+			fe->rfileProc = proc;
+		}
+		if (fe->clientData != clientData) {
+			log_warn("file fd:%d add new mask  event's proc args not same!", fe->fd);
+			fe->clientData = clientData;
+		}
 	}
 
-	if (ezApiAddEvent(eventLoop, fd, mask, fe->mask) == -1) {
-        // 加入到回收链表头
+	if (ezApiAddEvent(eventLoop, fd, mask, oldmask) == -1) {
 		ez_free(fe);
-		-- eventLoop->count;
 		return AE_ERR;
 	}
 
-	fe->mask |= mask;
-	fe->rfileProc = proc;
+    if(add) eventLoop->count += 1;
 
 	rbtree_insert(&eventLoop->rbtree_events, &(fe->rb_node));
+    
 	return AE_OK;
 }
 
@@ -228,7 +250,7 @@ void ez_delete_file_event(ezEventLoop * eventLoop, int fd, int mask)
 	fe->mask = fe->mask & (~mask);
 	if (fe->mask == AE_NONE) {
 		rbtree_delete(&eventLoop->rbtree_events, &fe->rb_node);
-		-- eventLoop->count;
+		--eventLoop->count;
 		put_to_free_file_events(eventLoop, fe);
 	}
 }
@@ -237,7 +259,8 @@ void ez_delete_file_event(ezEventLoop * eventLoop, int fd, int mask)
  * eventLoop    事件loop
  * milliseconds 启动时间
  */
-int64_t ez_create_time_event(ezEventLoop * eventLoop, int64_t period, ezTimeProc proc, void *clientData)
+int64_t ez_create_time_event(ezEventLoop * eventLoop, int64_t period, ezTimeProc proc,
+			     void *clientData)
 {
 	int64_t id = eventLoop->timeNextId++;
 	ezTimeEvent *te = ez_malloc(sizeof(*te));
@@ -298,7 +321,7 @@ void ez_run_event_loop(ezEventLoop * eventLoop)
 /* Process time events */
 static int process_time_events(ezEventLoop * eventLoop)
 {
-	#define REPUT_ARRAY_SIZE 64
+#define REPUT_ARRAY_SIZE 64
 
 	int processed = 0;
 	int re_put_index = 0, over_size = 0;
@@ -348,15 +371,20 @@ static int process_time_events(ezEventLoop * eventLoop)
 				}
 				// 将原来位置的入min_heap中.
 				if (rePutTimeEvents[re_put_index] != NULL) {
-					put_min_result = ez_min_heap_push(&eventLoop->timeEventMinHeap, rePutTimeEvents[re_put_index]);
+					put_min_result =
+					    ez_min_heap_push(&eventLoop->timeEventMinHeap,
+							     rePutTimeEvents[re_put_index]);
 					if (put_min_result != 0) {
-						log_error("push time event [id:%li] to min_heap failed!", rePutTimeEvents[re_put_index]->id);
+						log_error
+						    ("push time event [id:%li] to min_heap failed!",
+						     rePutTimeEvents[re_put_index]->id);
 					}
 				}
 				// 将新的加入到这个数组中.
 				rePutTimeEvents[re_put_index++] = te;
 			} else {
-				log_debug("time event [id:%li] return AE_TIMER_END, delete it.", te->id);
+				log_debug("time event [id:%li] return AE_TIMER_END, delete it.",
+					  te->id);
 				ez_free(te);
 			}
 		} else {
@@ -369,7 +397,8 @@ static int process_time_events(ezEventLoop * eventLoop)
 		put_min_result = ez_min_heap_push(&eventLoop->timeEventMinHeap, rePutTimeEvents[i]);
 
 		if (put_min_result != 0) {
-			log_error("push time event [id:%li] to min_heap failed!", rePutTimeEvents[i]->id);
+			log_error("push time event [id:%li] to min_heap failed!",
+				  rePutTimeEvents[i]->id);
 		}
 		rePutTimeEvents[i] = NULL;
 	}
@@ -412,7 +441,7 @@ static int ez_process_events(ezEventLoop * eventLoop, int flags)
 		if (shortest != NULL) {
 			tvp = (int)(shortest->when_ms - ez_get_cur_milliseconds());
 		} else {
-			tvp = -1; // wait for block
+			tvp = -1;	// wait for block
 		}
 
 		numevents = ezApiPoll(eventLoop, tvp);
@@ -421,7 +450,8 @@ static int ez_process_events(ezEventLoop * eventLoop, int flags)
 			int fd = eventLoop->fired[j].fd;
 			ezFileEvent *fe = ez_fund_file_event(eventLoop, fd);
 
-			if (fe->mask != AE_NONE && ((fired_mask & AE_READABLE) || (fired_mask & AE_WRITABLE))) {
+			if (fe->mask != AE_NONE
+			    && ((fired_mask & AE_READABLE) || (fired_mask & AE_WRITABLE))) {
 				// 只击发一次，由函数中实行中区分出是<read|write>操作.
 				fe->rfileProc(eventLoop, fd, fe->clientData, fired_mask);
 			}
