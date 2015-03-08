@@ -3,6 +3,16 @@
 #define __ZMALLOC_H
 
 #include <stddef.h>
+#include <stdint.h>
+
+#ifndef EZMEM_ALIGNMENT
+#define EZMEM_ALIGNMENT       sizeof(uintptr_t)
+#endif
+
+#define ezmem_align(d, a)     (((d) + (a - 1)) & ~(a - 1))
+
+#define ezmem_align_ptr(p, a)  \
+    (uint8_t *) (((uintptr_t) (p) + ((uintptr_t) a - 1)) & ~((uintptr_t) a - 1))
 
 /* =============================================================================
  * Memory allocation and free
