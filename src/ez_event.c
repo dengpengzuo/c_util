@@ -353,7 +353,7 @@ static int process_time_events(ezEventLoop * eventLoop)
 		if (all_fired || now_ms > te->when_ms) {
 			// 弹出最小值.
 			te = (ezTimeEvent *) ez_min_heap_pop(&eventLoop->timeEventMinHeap);
-			log_debug("pop time event [id:%li].", te->id);
+			log_debug("pop time event [id:%li], call it!", te->id);
 			int retval = te->timeProc(eventLoop, te->id, te->clientData);
 			processed++;
 
@@ -370,20 +370,15 @@ static int process_time_events(ezEventLoop * eventLoop)
 				}
 				// 将原来位置的入min_heap中.
 				if (rePutTimeEvents[re_put_index] != NULL) {
-					put_min_result =
-					    ez_min_heap_push(&eventLoop->timeEventMinHeap,
-							     rePutTimeEvents[re_put_index]);
+					put_min_result = ez_min_heap_push(&eventLoop->timeEventMinHeap, rePutTimeEvents[re_put_index]);
 					if (put_min_result != 0) {
-						log_error
-						    ("push time event [id:%li] to min_heap failed!",
-						     rePutTimeEvents[re_put_index]->id);
+						log_error("push time event [id:%li] to min_heap failed!", rePutTimeEvents[re_put_index]->id);
 					}
 				}
 				// 将新的加入到这个数组中.
 				rePutTimeEvents[re_put_index++] = te;
 			} else {
-				log_debug("time event [id:%li] return AE_TIMER_END, delete it.",
-					  te->id);
+				log_debug("time event [id:%li] return AE_TIMER_END, delete it.", te->id);
 				ez_free(te);
 			}
 		} else {
@@ -396,8 +391,7 @@ static int process_time_events(ezEventLoop * eventLoop)
 		put_min_result = ez_min_heap_push(&eventLoop->timeEventMinHeap, rePutTimeEvents[i]);
 
 		if (put_min_result != 0) {
-			log_error("push time event [id:%li] to min_heap failed!",
-				  rePutTimeEvents[i]->id);
+			log_error("push time event [id:%li] to min_heap failed!", rePutTimeEvents[i]->id);
 		}
 		rePutTimeEvents[i] = NULL;
 	}
@@ -449,9 +443,9 @@ static int ez_process_events(ezEventLoop * eventLoop, int flags)
 			int fd = eventLoop->fired[j].fd;
 			ezFileEvent *fe = ez_fund_file_event(eventLoop, fd);
 
-			if (fe->mask != AE_NONE
-			    && ((fired_mask & AE_READABLE) || (fired_mask & AE_WRITABLE))) {
-				// 只击发一次，由函数中实行中区分出是<read|write>操作.
+			if ( ((fired_mask & AE_READABLE) || (fired_mask & AE_WRITABLE))
+					&& fe != NULL && fe->mask != AE_NONE ) {
+				// 只击发一次，由函数中实行中区分出是<AE_READABLE|AE_WRITABLE>操作.
 				fe->rfileProc(eventLoop, fd, fe->clientData, fired_mask);
 			}
 			processed++;
