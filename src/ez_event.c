@@ -50,11 +50,11 @@ struct ezEventLoop_t {
 	void *apidata;		/* This is used for event polling API specific data */
 
 	int setsize;		/* max number of file descriptors tracked */
-	int count;			/* add file event count */
+	int count;		/* add file event count */
 
-	ezRBTree rbtree_events;		  /* rbtree file events */
-	ezRBTreeNode rbnode_sentinel; /* rbtree sentinel node */
-	ezRBTreeNode *free_events;    /* free rbtree node linked list (node->parent) */
+	ezRBTree rbtree_events;	/* rbtree file events */
+	ezRBTreeNode rbnode_sentinel;	/* rbtree sentinel node */
+	ezRBTreeNode *free_events;	/* free rbtree node linked list (node->parent) */
 
 	// time out event fields.
 	time_t lastTime;	/* Used to detect system clock skew */
@@ -122,14 +122,16 @@ ezEventLoop *ez_create_event_loop(int setsize)
 	if (!eventLoop)
 		goto err;
 
-	rbtree_init(&eventLoop->rbtree_events, &eventLoop->rbnode_sentinel, file_event_compare_proc);
+	rbtree_init(&eventLoop->rbtree_events, &eventLoop->rbnode_sentinel,
+		    file_event_compare_proc);
 	eventLoop->free_events = NULL;
 
 	eventLoop->fired = (ezFiredEvent *) ez_malloc(sizeof(ezFiredEvent) * setsize);
 	if (eventLoop->fired == NULL)
 		goto err;
 
-	ez_min_heap_init(&eventLoop->timeEventMinHeap, ez_time_event_compare_proc, ez_time_event_free_proc);
+	ez_min_heap_init(&eventLoop->timeEventMinHeap, ez_time_event_compare_proc,
+			 ez_time_event_free_proc);
 
 	eventLoop->setsize = setsize;
 	eventLoop->lastTime = time(NULL);
@@ -186,11 +188,12 @@ int ez_create_file_event(ezEventLoop * eventLoop, int fd, int mask, ezFileProc p
 {
 	ezFileEvent *fe = ez_fund_file_event(eventLoop, fd);
 	int oldmask;
-    int add;
+	int add;
 
 	if (fe == NULL) {
 		if (eventLoop->count >= eventLoop->setsize) {
-			log_error("event loop create file event count's over setsize:%d !", eventLoop->setsize);
+			log_error("event loop create file event count's over setsize:%d !",
+				  eventLoop->setsize);
 			return AE_ERR;
 		}
 		// 从回收链接表中取
@@ -202,7 +205,7 @@ int ez_create_file_event(ezEventLoop * eventLoop, int fd, int mask, ezFileProc p
 			fe = ez_malloc(sizeof(ezFileEvent));
 		}
 
-        add = 1 ;
+		add = 1;
 		oldmask = AE_NONE;
 
 		fe->fd = fd;
@@ -210,11 +213,11 @@ int ez_create_file_event(ezEventLoop * eventLoop, int fd, int mask, ezFileProc p
 		fe->rfileProc = proc;
 		fe->clientData = clientData;
 	} else {
-		add = 0 ;
+		add = 0;
 		oldmask = fe->mask;
 		fe->mask |= mask;
 
-        // update proc clientData 
+		// update proc clientData 
 		if (proc != NULL && fe->rfileProc != proc) {
 			log_warn("file fd:%d add new mask event's proc not same!", fe->fd);
 			fe->rfileProc = proc;
@@ -231,10 +234,10 @@ int ez_create_file_event(ezEventLoop * eventLoop, int fd, int mask, ezFileProc p
 	}
 
 	if (add) {
-        ++(eventLoop->count);
-    	rbtree_insert(&eventLoop->rbtree_events, &(fe->rb_node));
-    }
-    
+		++(eventLoop->count);
+		rbtree_insert(&eventLoop->rbtree_events, &(fe->rb_node));
+	}
+
 	return AE_OK;
 }
 
@@ -445,8 +448,8 @@ static int ez_process_events(ezEventLoop * eventLoop, int flags)
 			int fired_mask = eventLoop->fired[j].mask;
 			ezFileEvent *fe = ez_fund_file_event(eventLoop, fd);
 
-			if ( ((fired_mask & AE_READABLE) || (fired_mask & AE_WRITABLE))
-					&& fe != NULL && fe->mask != AE_NONE ) {
+			if (((fired_mask & AE_READABLE) || (fired_mask & AE_WRITABLE))
+			    && fe != NULL && fe->mask != AE_NONE) {
 				// 只击发一次，由函数中实行中区分出是<AE_READABLE|AE_WRITABLE>操作.
 				fe->rfileProc(eventLoop, fd, fe->clientData, fired_mask);
 			}
