@@ -212,13 +212,14 @@ int ez_create_file_event(ezEventLoop * eventLoop, int fd, int mask, ezFileProc p
 	} else {
 		add = 0 ;
 		oldmask = fe->mask;
-
 		fe->mask |= mask;
-		if (fe->rfileProc != proc) {
+
+        // update proc clientData 
+		if (proc != NULL && fe->rfileProc != proc) {
 			log_warn("file fd:%d add new mask event's proc not same!", fe->fd);
 			fe->rfileProc = proc;
 		}
-		if (fe->clientData != clientData) {
+		if (clientData != NULL && fe->clientData != clientData) {
 			log_warn("file fd:%d add new mask  event's proc args not same!", fe->fd);
 			fe->clientData = clientData;
 		}
@@ -229,9 +230,10 @@ int ez_create_file_event(ezEventLoop * eventLoop, int fd, int mask, ezFileProc p
 		return AE_ERR;
 	}
 
-	if (add) ++(eventLoop->count);
-
-	rbtree_insert(&eventLoop->rbtree_events, &(fe->rb_node));
+	if (add) {
+        ++(eventLoop->count);
+    	rbtree_insert(&eventLoop->rbtree_events, &(fe->rb_node));
+    }
     
 	return AE_OK;
 }
@@ -439,8 +441,8 @@ static int ez_process_events(ezEventLoop * eventLoop, int flags)
 
 		numevents = ezApiPoll(eventLoop, tvp);
 		for (j = 0; j < numevents; j++) {
-			int fired_mask = eventLoop->fired[j].mask;
 			int fd = eventLoop->fired[j].fd;
+			int fired_mask = eventLoop->fired[j].mask;
 			ezFileEvent *fe = ez_fund_file_event(eventLoop, fd);
 
 			if ( ((fired_mask & AE_READABLE) || (fired_mask & AE_WRITABLE))
