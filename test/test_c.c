@@ -52,9 +52,10 @@ int wait_quit(int c)
 int main(int argc, char **argv)
 {
 	int port = 9090;
-	char addr[] = "localhost";
-	EZ_NOTUSED(argc);
-	EZ_NOTUSED(argv);
+	char *addr = "localhost";
+    if(argc > 1) {
+    	addr = argv[1];
+    }
 
 	signal(SIGHUP, SIG_IGN);
 	signal(SIGPIPE, SIG_IGN);

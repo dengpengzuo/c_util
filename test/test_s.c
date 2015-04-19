@@ -35,7 +35,9 @@ static void cust_signal_handler(int signo);
 static struct ez_signal cust_signals[] = {
     { SIGHUP,  "SIGHUP",  0, SIG_IGN },
     { SIGPIPE, "SIGPIPE", 0, SIG_IGN },
+    { SIGINT,  "SIGINT" , 0, cust_signal_handler },
     { SIGQUIT, "SIGQUIT", 0, cust_signal_handler },
+	{ SIGTERM, "SIGTERM", 0, cust_signal_handler },
     { 0,       "NULL",    0, NULL }
 };
 
@@ -74,7 +76,9 @@ static void cust_signal_handler(int signo)
 	if (signo == 0) return;
 
     switch (signo) {
+    case SIGINT:
     case SIGQUIT:
+	case SIGTERM:
 		ez_stop_event_loop(boss.w_event);
         break;
     default:
@@ -221,16 +225,19 @@ int main(int argc, char **argv)
 	EZ_NOTUSED(argv);
 
 	cust_signal_init();
-	log_init(LOG_VVVERB, NULL);
+	log_init(LOG_INFO, NULL);
 
-	int s = ez_net_tcp_server(port, NULL, 1024);
+	int s = ez_net_tcp_server(port, "0.0.0.0", 1024); 	// 监听的SRC := 0.0.0.0
+	int s6 = ez_net_tcp6_server(port, "::", 1024);		// 监听的SRC := ::
 	log_info("server %d at port %d wait client ...", s, port);
+	log_info("server %d at port %d wait client ...", s6, port);
 
 	init_boss();
 	init_workers();
 
 	// add s accept
 	ez_create_file_event(boss.w_event, s, AE_READABLE, accept_handler, NULL);
+	ez_create_file_event(boss.w_event, s6, AE_READABLE, accept_handler, NULL);
 	// test time out.
 	ez_create_time_event(boss.w_event, 5000, time_out_handler, NULL);
 
@@ -239,6 +246,7 @@ int main(int argc, char **argv)
 	stop_free_workers();
 
 	ez_net_close_socket(s);
+	ez_net_close_socket(s6);
 	log_release();
 	return 0;
 }

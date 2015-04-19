@@ -158,7 +158,7 @@ void _log(LOG_LEVEL log_level, const char *file, int line, int panic, const char
 
 	len +=
 	    ez_scnprintf(buf + len, size - len,
-			 "[%04d-%02d-%02d %02d:%02d:%02d.%03d] [%10s] %s:%d ",
+			 "%04d-%02d-%02d %02d:%02d:%02d.%03d [%10s] %s:%d ",
 			 tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
 			 tm.tm_hour, tm.tm_min, tm.tm_sec, (int)(tv.tv_usec / 1000),
 			 get_log_level_name(log_level), file, line);
