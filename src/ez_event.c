@@ -54,28 +54,20 @@ typedef struct ezFiredEvent_t {
 /* State of an event based program */
 struct ezEventLoop_t {
 	int stop;
-	void *apidata;
-	/* This is used for event polling API specific data */
+	void *apidata;	/* This is used for event polling API specific data */
 
-	int setsize;
-	/* max number of file descriptors tracked */
-	int count;
-	/* add file event count */
+	int setsize;	/* max number of file descriptors tracked */
+	int count;		/* add file event count */
 
-	ezRBTree rbtree_events;
-	/* rbtree file events */
-	ezRBTreeNode rbnode_sentinel;
-	/* rbtree sentinel node */
-	ezRBTreeNode *free_events;
-	/* free rbtree node linked list (node->parent) */
+	ezRBTree rbtree_events;			/* rbtree file events */
+	ezRBTreeNode rbnode_sentinel;	/* rbtree sentinel node */
+	ezRBTreeNode *free_events;		/* free rbtree node linked list (node->parent) */
 
-	time_t lastTime;
-	/* Used to detect system clock skew */
+	time_t lastTime;				/* Used to detect system clock skew */
 	int64_t timeNextId;
-	list_head time_events;
-	/* 按照时间长短和ID进行比较放入的队列 */
+	list_head time_events;			/* 按照时间长短和ID进行比较放入的队列 */
 
-	ezFiredEvent *fired;	/* Fired events */
+	ezFiredEvent *fired;			/* Fired events */
 };
 
 // linux epoll code
@@ -176,12 +168,11 @@ void ez_delete_event_loop(ezEventLoop * eventLoop)
     for (ti = eventLoop->time_events.next; ti != &eventLoop->time_events;) {
 		tlist = ti;
         ti = ti->next;
-		{
-			list_del(tlist);
-			t = cast_to_time_event(tlist);
-			log_debug("delete time event [id:%li].", t->id);
-			ez_free(t);
-		}
+		list_del(tlist);
+
+		t = cast_to_time_event(tlist);
+		log_debug("delete time event [id:%li].", t->id);
+		ez_free(t);
 	}
 
 	ez_free(eventLoop);
@@ -365,16 +356,15 @@ static int process_time_events(ezEventLoop * eventLoop)
 		now_ms = ez_get_cur_milliseconds();
 
 		if (all_fired || now_ms >= te->when_ms) {
+			ti = ti->next;
+			list_del(tmp);
 
 			log_debug("pop time event [id:%li], call it!", te->id);
 			int retval = te->timeProc(eventLoop, te->id, te->clientData);
 			processed++;
 
-			ti = ti->next;
-			list_del(tmp);
-
 			if (retval <= AE_TIMER_END) {
-				log_debug("delete time event [id:%li]", te->id);
+				log_debug("delete once time event [id:%li]", te->id);
 				ez_free(te);
 			} else {
 				if (retval == AE_TIMER_NEXT)
