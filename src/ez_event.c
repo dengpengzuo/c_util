@@ -1,30 +1,30 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <errno.h>
-#include <ez_rbtree.h>
 
+#include "ez_log.h"
 #include "ez_malloc.h"
 #include "ez_util.h"
-#include "ez_min_heap.h"
-#include "ez_log.h"
+#include "ez_rbtree.h"
+#include "ez_list.h"
 
 #include "ez_event.h"
 
 /* File event structure */
 typedef struct ezFileEvent_t {
 	int fd;
-	int mask;		/* one of AE_(READABLE|WRITABLE) */
+	int mask;
+	/* one of AE_(READABLE|WRITABLE) */
 	ezFileProc rfileProc;
 	void *clientData;
+
 	ezRBTreeNode rb_node;	/* rbtree node */
 } ezFileEvent;
 
-static inline ezFileEvent *cast_to(ezRBTreeNode * node)
+static inline ezFileEvent *cast_to_file_event(ezRBTreeNode * node)
 {
 	return ez_container_of(node, ezFileEvent, rb_node);
 }
@@ -36,7 +36,14 @@ typedef struct ezTimeEvent_t {
 	int64_t when_ms;	/* Firing milliseconds */
 	ezTimeProc timeProc;
 	void *clientData;
+
+	list_head listNode;	/* time events list node */
 } ezTimeEvent;
+
+static inline ezTimeEvent *cast_to_time_event(list_head * node)
+{
+	return ez_container_of(node, ezTimeEvent, listNode);
+}
 
 /* A fired event */
 typedef struct ezFiredEvent_t {
@@ -47,19 +54,26 @@ typedef struct ezFiredEvent_t {
 /* State of an event based program */
 struct ezEventLoop_t {
 	int stop;
-	void *apidata;		/* This is used for event polling API specific data */
+	void *apidata;
+	/* This is used for event polling API specific data */
 
-	int setsize;		/* max number of file descriptors tracked */
-	int count;		/* add file event count */
+	int setsize;
+	/* max number of file descriptors tracked */
+	int count;
+	/* add file event count */
 
-	ezRBTree rbtree_events;	/* rbtree file events */
-	ezRBTreeNode rbnode_sentinel;	/* rbtree sentinel node */
-	ezRBTreeNode *free_events;	/* free rbtree node linked list (node->parent) */
+	ezRBTree rbtree_events;
+	/* rbtree file events */
+	ezRBTreeNode rbnode_sentinel;
+	/* rbtree sentinel node */
+	ezRBTreeNode *free_events;
+	/* free rbtree node linked list (node->parent) */
 
-	// time out event fields.
-	time_t lastTime;	/* Used to detect system clock skew */
+	time_t lastTime;
+	/* Used to detect system clock skew */
 	int64_t timeNextId;
-	ezMinHeap timeEventMinHeap;	/* Registered time events */
+	list_head time_events;
+	/* 按照时间长短和ID进行比较放入的队列 */
 
 	ezFiredEvent *fired;	/* Fired events */
 };
@@ -79,31 +93,17 @@ static inline void put_to_free_file_events(ezEventLoop * eventLoop, ezFileEvent 
 
 static int ez_process_events(ezEventLoop * eventLoop, int flags);
 
-static int ez_time_event_compare_proc(void *p, void *n)
-{
-	ezTimeEvent *pte = (ezTimeEvent *) p;
-	ezTimeEvent *nte = (ezTimeEvent *) n;
-	return (pte->when_ms > nte->when_ms) ? 1 : 0;
-}
-
-static void ez_time_event_free_proc(void *p)
-{
-	ezTimeEvent *pte = (ezTimeEvent *) p;
-	log_debug("delete time event [id:%li].", pte->id);
-	ez_free(pte);
-}
-
 static int file_event_compare_proc(ezRBTreeNode * newNode, ezRBTreeNode * existNode)
 {
-	ezFileEvent *newEvent = cast_to(newNode);
-	ezFileEvent *existEvent = cast_to(existNode);
+	ezFileEvent *newEvent = cast_to_file_event(newNode);
+	ezFileEvent *existEvent = cast_to_file_event(existNode);
 	return newEvent->fd > existEvent->fd ? 1 : (newEvent->fd < existEvent->fd ? -1 : 0);
 }
 
 static int file_event_find_compare_proc(ezRBTreeNode * node, void *find_args)
 {
 	int fd = *((int *)find_args);
-	ezFileEvent *fe = cast_to(node);
+	ezFileEvent *fe = cast_to_file_event(node);
 	return fe->fd == fd ? 0 : (fe->fd > fd ? 1 : -1);
 }
 
@@ -111,7 +111,7 @@ static ezFileEvent *ez_fund_file_event(ezEventLoop * eventLoop, int fd)
 {
 	ezRBTreeNode *n =
 	    rbtree_find_node(&eventLoop->rbtree_events, file_event_find_compare_proc, (void *)&fd);
-	return n == NULL ? NULL : cast_to(n);
+	return n == NULL ? NULL : cast_to_file_event(n);
 }
 
 ezEventLoop *ez_create_event_loop(int setsize)
@@ -130,8 +130,7 @@ ezEventLoop *ez_create_event_loop(int setsize)
 	if (eventLoop->fired == NULL)
 		goto err;
 
-	ez_min_heap_init(&eventLoop->timeEventMinHeap, ez_time_event_compare_proc,
-			 ez_time_event_free_proc);
+	init_list_head(&eventLoop->time_events);
 
 	eventLoop->setsize = setsize;
 	eventLoop->lastTime = time(NULL);
@@ -145,7 +144,6 @@ ezEventLoop *ez_create_event_loop(int setsize)
  err:
 	if (eventLoop) {
 		ez_free(eventLoop->fired);
-		ez_min_heap_free(&eventLoop->timeEventMinHeap);
 		ez_free(eventLoop);
 	}
 	return NULL;
@@ -155,24 +153,37 @@ void ez_delete_event_loop(ezEventLoop * eventLoop)
 {
 	ezRBTreeNode *i;
 	ezFileEvent *e;
+	ezTimeEvent *t;
+	list_head *ti, *tlist;
 	if (!eventLoop)
 		return;
 	ezApiDelete(eventLoop);
 
 	// free ezFileEvent.
 	for (i = eventLoop->free_events; i != NULL;) {
-		e = cast_to(i);
+		e = cast_to_file_event(i);
 		i = i->parent;
 		ez_free(e);
 	}
 	while ((i = rbtree_min_node(&eventLoop->rbtree_events)) != NULL) {
 		rbtree_delete(&eventLoop->rbtree_events, i);
-		e = cast_to(i);
+		e = cast_to_file_event(i);
 		ez_free(e);
 	}
 
 	ez_free(eventLoop->fired);
-	ez_min_heap_free(&eventLoop->timeEventMinHeap);
+
+    for (ti = eventLoop->time_events.next; ti != &eventLoop->time_events;) {
+		tlist = ti;
+        ti = ti->next;
+		{
+			list_del(tlist);
+			t = cast_to_time_event(tlist);
+			log_debug("delete time event [id:%li].", t->id);
+			ez_free(t);
+		}
+	}
+
 	ez_free(eventLoop);
 }
 
@@ -198,7 +209,7 @@ int ez_create_file_event(ezEventLoop * eventLoop, int fd, int mask, ezFileProc p
 		}
 		// 从回收链接表中取
 		if (eventLoop->free_events != NULL) {
-			fe = cast_to(eventLoop->free_events);
+			fe = cast_to_file_event(eventLoop->free_events);
 			eventLoop->free_events = eventLoop->free_events->parent;
 			memset(fe, 0, sizeof(ezFileEvent));
 		} else {
@@ -217,7 +228,7 @@ int ez_create_file_event(ezEventLoop * eventLoop, int fd, int mask, ezFileProc p
 		oldmask = fe->mask;
 		fe->mask |= mask;
 
-		// update proc clientData 
+		// update proc clientData
 		if (proc != NULL && fe->rfileProc != proc) {
 			log_warn("file fd:%d add new mask event's proc not same!", fe->fd);
 			fe->rfileProc = proc;
@@ -259,6 +270,18 @@ void ez_delete_file_event(ezEventLoop * eventLoop, int fd, int mask)
 	}
 }
 
+static void insert_time_event_list(list_head *first, list_head *end, ezTimeEvent *te) {
+	list_head *ti ;
+	for (ti = first; ti != end;) {
+		ezTimeEvent *i = cast_to_time_event(ti);
+		if (te->when_ms > i->when_ms) {
+			ti = ti->next;
+		} else {
+			break;
+		}
+	}
+	list_add(&te->listNode, ti); // add ti after.
+}
 /**
  * eventLoop    事件loop
  * milliseconds 启动时间
@@ -276,34 +299,27 @@ int64_t ez_create_time_event(ezEventLoop * eventLoop, int64_t period, ezTimeProc
 	te->clientData = clientData;
 	te->period = period;
 	te->when_ms = ez_get_cur_milliseconds() + te->period;
+	log_debug("create time event [id:%li].", id);
 
-	int r = ez_min_heap_push(&eventLoop->timeEventMinHeap, (void *)te);
-	if (r != 0) {
-		ez_free(te);
-		log_error("push time event [id:%li] to min_heap failed!", id);
-		return AE_ERR;
-	}
+	insert_time_event_list(eventLoop->time_events.next, &eventLoop->time_events, te);
 	return id;
-}
-
-static int ez_time_event_find_cmp(void *data, void *args)
-{
-	ezTimeEvent *te = (ezTimeEvent *) data;
-	int64_t *find_time_id = (int64_t *) args;
-
-	return (*find_time_id == te->id) ? 1 : 0;
 }
 
 void ez_delete_time_event(ezEventLoop * eventLoop, int64_t id)
 {
-	int index = ez_min_heap_find(&eventLoop->timeEventMinHeap, ez_time_event_find_cmp, &id);
-	if (index == MIN_HEAP_NOT_FUND) {
-		log_error("delete time event [id:%li] not find!", id);
-		return;
-	}
+    ezTimeEvent *te = NULL;
 	log_debug("delete time event [id:%li].", id);
-	ezTimeEvent *te = (ezTimeEvent *) ez_min_heap_delete(&eventLoop->timeEventMinHeap, index);
-	ez_free(te);
+
+    for (list_head * tlist = eventLoop->time_events.next; tlist != &eventLoop->time_events;) {
+        te = cast_to_time_event(tlist);
+        if (te->id == id) {
+            list_del(tlist);
+            ez_free(te);
+            break;
+        } else {
+            tlist = tlist->next;
+        }
+   	}
 }
 
 #define AE_FILE_EVENTS  1
@@ -325,13 +341,8 @@ void ez_run_event_loop(ezEventLoop * eventLoop)
 /* Process time events */
 static int process_time_events(ezEventLoop * eventLoop)
 {
-#define REPUT_ARRAY_SIZE 64
-
 	int processed = 0;
-	int re_put_index = 0, over_size = 0;
-	int put_min_result = 0, all_fired = 0;
-	ezTimeEvent *te = NULL;
-	ezTimeEvent *rePutTimeEvents[REPUT_ARRAY_SIZE];
+	int all_fired = 0;
 	int64_t now_ms;
 	/* If the system clock is moved to the future, and then set back to the
 	 * right value, time events may be delayed in a random way. Often this
@@ -347,58 +358,37 @@ static int process_time_events(ezEventLoop * eventLoop)
 		all_fired = 1;
 	}
 	eventLoop->lastTime = now;
-	memset(rePutTimeEvents, 0, REPUT_ARRAY_SIZE * sizeof(ezTimeEvent *));
-	do {
-		now_ms = ez_get_cur_milliseconds();
-		if (!all_fired)
-			te = (ezTimeEvent *) ez_min_heap_min(&eventLoop->timeEventMinHeap);
 
-		if (te == NULL)
-			break;
-		if (all_fired || now_ms > te->when_ms) {
-			// 弹出最小值.
-			te = (ezTimeEvent *) ez_min_heap_pop(&eventLoop->timeEventMinHeap);
+	for (list_head *ti = eventLoop->time_events.next; ti != &eventLoop->time_events;) {
+		list_head *tmp = ti;
+		ezTimeEvent *te = cast_to_time_event(tmp);
+		now_ms = ez_get_cur_milliseconds();
+
+		if (all_fired || now_ms >= te->when_ms) {
+
 			log_debug("pop time event [id:%li], call it!", te->id);
 			int retval = te->timeProc(eventLoop, te->id, te->clientData);
 			processed++;
 
-			if (retval > AE_TIMER_END) {
-				// 固定step period.
+			ti = ti->next;
+			list_del(tmp);
+
+			if (retval <= AE_TIMER_END) {
+				log_debug("delete time event [id:%li]", te->id);
+				ez_free(te);
+			} else {
 				if (retval == AE_TIMER_NEXT)
 					te->when_ms = now_ms + te->period;
 				else
 					te->when_ms = now_ms + retval;
 
-				if (re_put_index >= REPUT_ARRAY_SIZE) {
-					over_size = 1;
-					re_put_index = 0;
-				}
-				// 将原来位置的入min_heap中.
-				if (rePutTimeEvents[re_put_index] != NULL) {
-					put_min_result = ez_min_heap_push(&eventLoop->timeEventMinHeap, rePutTimeEvents[re_put_index]);
-					if (put_min_result != 0) {
-						log_error("push time event [id:%li] to min_heap failed!", rePutTimeEvents[re_put_index]->id);
-					}
-				}
-				// 将新的加入到这个数组中.
-				rePutTimeEvents[re_put_index++] = te;
-			} else {
-				log_debug("time event [id:%li] return AE_TIMER_END, delete it.", te->id);
-				ez_free(te);
+				log_debug("time event [id:%li] next .", te->id);
+				insert_time_event_list(ti, &eventLoop->time_events, te);
 			}
 		} else {
-			break;	// 没有小于当前时间的time_event.
+			// 没得比这个时间小的了，停止处理timeEvent.
+			break;
 		}
-	} while (true);
-
-	// re put to min_heap.
-	for (int i = 0; i < (over_size == 1 ? REPUT_ARRAY_SIZE : re_put_index); ++i) {
-		put_min_result = ez_min_heap_push(&eventLoop->timeEventMinHeap, rePutTimeEvents[i]);
-
-		if (put_min_result != 0) {
-			log_error("push time event [id:%li] to min_heap failed!", rePutTimeEvents[i]->id);
-		}
-		rePutTimeEvents[i] = NULL;
 	}
 
 	return processed;
@@ -434,7 +424,11 @@ static int ez_process_events(ezEventLoop * eventLoop, int flags)
 		ezTimeEvent *shortest = NULL;
 		int j, tvp;
 		if (flags & AE_TIME_EVENTS) {
-			shortest = (ezTimeEvent *) ez_min_heap_min(&eventLoop->timeEventMinHeap);
+			shortest = NULL;
+			// 第一个timeEvent就是最少的wait time.
+			if (!list_empty(&eventLoop->time_events)) {
+				shortest = cast_to_time_event(eventLoop->time_events.next);
+			}
 		}
 		if (shortest != NULL) {
 			tvp = (int)(shortest->when_ms - ez_get_cur_milliseconds());

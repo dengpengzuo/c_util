@@ -14,6 +14,7 @@ set(SRC_LIST
     ez_rbtree.c
     ez_net.c
     ez_util.c
+    ez_list.c
 )
 
 # static library
