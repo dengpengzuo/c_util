@@ -271,7 +271,7 @@ static void insert_time_event_list(list_head *first, list_head *end, ezTimeEvent
 			break;
 		}
 	}
-	list_add(&te->listNode, ti); // add ti after.
+	list_add(&te->listNode, ti->prev); // add newNode at @ti before.
 }
 /**
  * eventLoop    事件loop
@@ -290,7 +290,7 @@ int64_t ez_create_time_event(ezEventLoop * eventLoop, int64_t period, ezTimeProc
 	te->clientData = clientData;
 	te->period = period;
 	te->when_ms = ez_get_cur_milliseconds() + te->period;
-	log_debug("create time event [id:%li].", id);
+	log_debug("create time event [id:%li, when_ms:%li].", id, te->when_ms);
 
 	insert_time_event_list(eventLoop->time_events.next, &eventLoop->time_events, te);
 	return id;
@@ -352,11 +352,11 @@ static int process_time_events(ezEventLoop * eventLoop)
 
 	for (list_head *ti = eventLoop->time_events.next; ti != &eventLoop->time_events;) {
 		list_head *tmp = ti;
+		ti = ti->next;
 		ezTimeEvent *te = cast_to_time_event(tmp);
 		now_ms = ez_get_cur_milliseconds();
 
 		if (all_fired || now_ms >= te->when_ms) {
-			ti = ti->next;
 			list_del(tmp);
 
 			log_debug("pop time event [id:%li], call it!", te->id);
@@ -372,8 +372,9 @@ static int process_time_events(ezEventLoop * eventLoop)
 				else
 					te->when_ms = now_ms + retval;
 
-				log_debug("time event [id:%li] next .", te->id);
-				insert_time_event_list(ti, &eventLoop->time_events, te);
+				log_debug("time event [id:%li] re put next times.", te->id);
+				insert_time_event_list(eventLoop->time_events.next, &eventLoop->time_events, te);
+				ti = eventLoop->time_events.next;
 			}
 		} else {
 			// 没得比这个时间小的了，停止处理timeEvent.
@@ -418,6 +419,7 @@ static int ez_process_events(ezEventLoop * eventLoop, int flags)
 			// 第一个timeEvent就是最少的wait time.
 			if (!list_empty(&eventLoop->time_events)) {
 				shortest = cast_to_time_event(eventLoop->time_events.next);
+				log_info("find wait time event id:%li", shortest->id);
 			}
 		}
 		if (shortest != NULL) {

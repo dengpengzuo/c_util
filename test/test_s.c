@@ -240,6 +240,7 @@ int main(int argc, char **argv)
 	ez_create_file_event(boss.w_event, s6, AE_READABLE, accept_handler, NULL);
 	// test time out.
 	ez_create_time_event(boss.w_event, 5000, time_out_handler, NULL);
+	ez_create_time_event(boss.w_event, 1000, time_out_handler, NULL);
 
 	run_boss();
 	stop_free_boss();
