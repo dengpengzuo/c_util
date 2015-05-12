@@ -146,7 +146,7 @@ void ez_delete_event_loop(ezEventLoop * eventLoop)
 	ezRBTreeNode *i;
 	ezFileEvent *e;
 	ezTimeEvent *t;
-	list_head *ti, *tlist;
+	list_head *ti;
 	if (!eventLoop)
 		return;
 	ezApiDelete(eventLoop);
@@ -166,11 +166,11 @@ void ez_delete_event_loop(ezEventLoop * eventLoop)
 	ez_free(eventLoop->fired);
 
     for (ti = eventLoop->time_events.next; ti != &eventLoop->time_events;) {
-		tlist = ti;
+		list_head *tmp = ti;
         ti = ti->next; // list_del前先跳到next上.
-		list_del(tlist);
+		list_del(tmp);
 
-		t = cast_to_time_event(tlist);
+		t = cast_to_time_event(tmp);
 		log_debug("delete time event [id:%li].", t->id);
 		ez_free(t);
 	}
@@ -185,8 +185,7 @@ void ez_stop_event_loop(ezEventLoop * eventLoop)
 	ezApiStop(eventLoop);
 }
 
-int ez_create_file_event(ezEventLoop * eventLoop, int fd, int mask, ezFileProc proc,
-			 void *clientData)
+int ez_create_file_event(ezEventLoop * eventLoop, int fd, int mask, ezFileProc proc, void *clientData)
 {
 	ezFileEvent *fe = ez_fund_file_event(eventLoop, fd);
 	int oldmask;
@@ -271,14 +270,13 @@ static void insert_time_event_list(list_head *first, list_head *end, ezTimeEvent
 			break;
 		}
 	}
-	list_add(&te->listNode, ti->prev); // add newNode at @ti before.
+	list_add(&te->listNode, ti->prev); // add newNode at ti->prev after.
 }
 /**
  * eventLoop    事件loop
  * milliseconds 启动时间
  */
-int64_t ez_create_time_event(ezEventLoop * eventLoop, int64_t period, ezTimeProc proc,
-			     void *clientData)
+int64_t ez_create_time_event(ezEventLoop * eventLoop, int64_t period, ezTimeProc proc, void *clientData)
 {
 	int64_t id = eventLoop->timeNextId++;
 	ezTimeEvent *te = ez_malloc(sizeof(*te));
@@ -361,12 +359,12 @@ static int process_time_events(ezEventLoop * eventLoop)
 		if (all_fired || now_ms >= te->when_ms) {
 			list_del(tmp);
 
-			log_debug("pop time event [id:%li], call it!", te->id);
+			log_debug("call time event [id:%li]", te->id);
 			int retval = te->timeProc(eventLoop, te->id, te->clientData);
 			processed++;
 
 			if (retval <= AE_TIMER_END) {
-				log_debug("delete once time event [id:%li]", te->id);
+				log_debug("delete one time event [id:%li]", te->id);
 				ez_free(te);
 			} else {
 				if (retval == AE_TIMER_NEXT)
@@ -389,7 +387,7 @@ static int process_time_events(ezEventLoop * eventLoop)
 		// 插入前先转到下一个指针[因为insert_list_head会对next.prev进行操作]
 		re_put = re_put->next;
 
-		log_debug("time event [id:%li] re put next times.", te->id);
+		log_debug("reput time event [id:%li]", te->id);
 		insert_time_event_list(eventLoop->time_events.next, &eventLoop->time_events, te);
 	}
 
@@ -430,11 +428,12 @@ static int ez_process_events(ezEventLoop * eventLoop, int flags)
 			// 第一个timeEvent就是最少的wait time.
 			if (!list_empty(&eventLoop->time_events)) {
 				shortest = cast_to_time_event(eventLoop->time_events.next);
-				log_info("find wait time event id:%li", shortest->id);
+				log_info("find min wait time event [id:%li]", shortest->id);
 			}
 		}
 		if (shortest != NULL) {
 			tvp = (int)(shortest->when_ms - ez_get_cur_milliseconds());
+            if( tvp < 0 ) tvp = 100; 
 		} else {
 			tvp = -1;	// wait for block
 		}
