@@ -167,7 +167,7 @@ void ez_delete_event_loop(ezEventLoop * eventLoop)
 
     for (ti = eventLoop->time_events.next; ti != &eventLoop->time_events;) {
 		tlist = ti;
-        ti = ti->next;
+        ti = ti->next; // list_del前先跳到next上.
 		list_del(tlist);
 
 		t = cast_to_time_event(tlist);
@@ -301,14 +301,14 @@ void ez_delete_time_event(ezEventLoop * eventLoop, int64_t id)
     ezTimeEvent *te = NULL;
 	log_debug("delete time event [id:%li].", id);
 
-    for (list_head * tlist = eventLoop->time_events.next; tlist != &eventLoop->time_events;) {
-        te = cast_to_time_event(tlist);
+    for (list_head *i = eventLoop->time_events.next; i != &eventLoop->time_events;) {
+        te = cast_to_time_event(i);
         if (te->id == id) {
-            list_del(tlist);
+            list_del(i);
             ez_free(te);
             break;
         } else {
-            tlist = tlist->next;
+            i = i->next;
         }
    	}
 }
@@ -334,7 +334,9 @@ static int process_time_events(ezEventLoop * eventLoop)
 {
 	int processed = 0;
 	int all_fired = 0;
+	list_head *re_put = NULL;
 	int64_t now_ms;
+    ezTimeEvent *te = NULL;
 	/* If the system clock is moved to the future, and then set back to the
 	 * right value, time events may be delayed in a random way. Often this
 	 * means that scheduled operations will not be performed soon enough.
@@ -353,7 +355,7 @@ static int process_time_events(ezEventLoop * eventLoop)
 	for (list_head *ti = eventLoop->time_events.next; ti != &eventLoop->time_events;) {
 		list_head *tmp = ti;
 		ti = ti->next;
-		ezTimeEvent *te = cast_to_time_event(tmp);
+		te = cast_to_time_event(tmp);
 		now_ms = ez_get_cur_milliseconds();
 
 		if (all_fired || now_ms >= te->when_ms) {
@@ -370,16 +372,25 @@ static int process_time_events(ezEventLoop * eventLoop)
 				if (retval == AE_TIMER_NEXT)
 					te->when_ms = now_ms + te->period;
 				else
-					te->when_ms = now_ms + retval;
-
-				log_debug("time event [id:%li] re put next times.", te->id);
-				insert_time_event_list(eventLoop->time_events.next, &eventLoop->time_events, te);
-				ti = eventLoop->time_events.next;
+    				te->when_ms = now_ms + retval;
+                // 重新入队的加入reput链表
+                te->listNode.next = re_put;
+                re_put = &te->listNode;
 			}
 		} else {
 			// 没得比这个时间小的了，停止处理timeEvent.
 			break;
 		}
+	}
+
+    // 重新入队
+	while (re_put != NULL) {
+        te = cast_to_time_event(re_put);
+		// 插入前先转到下一个指针[因为insert_list_head会对next.prev进行操作]
+		re_put = re_put->next;
+
+		log_debug("time event [id:%li] re put next times.", te->id);
+		insert_time_event_list(eventLoop->time_events.next, &eventLoop->time_events, te);
 	}
 
 	return processed;
