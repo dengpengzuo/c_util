@@ -30,18 +30,18 @@ struct logLevelInfo {
 static struct logger logger;
 
 static struct logLevelInfo LOG_LEVEL_INFO[] = {
-	{.name = "LOG_EMERG",.level = LOG_EMERG},
-	{.name = "LOG_ALERT",.level = LOG_ALERT},
-	{.name = "LOG_CRIT",.level = LOG_CRIT},
-	{.name = "LOG_ERR",.level = LOG_ERR},
-	{.name = "LOG_WARN",.level = LOG_WARN},
-	{.name = "LOG_NOTICE",.level = LOG_NOTICE},
-	{.name = "LOG_INFO",.level = LOG_INFO},
-	{.name = "LOG_DEBUG",.level = LOG_DEBUG},
-	{.name = "LOG_VERB",.level = LOG_VERB},
-	{.name = "LOG_VVERB",.level = LOG_VVERB},
-	{.name = "LOG_VVVERB",.level = LOG_VVVERB},
-	{.name = "LOG_PVERB",.level = LOG_PVERB},
+	{.name = "EMERG",.level = LOG_EMERG},
+	{.name = "ALERT",.level = LOG_ALERT},
+	{.name = "CRIT",.level = LOG_CRIT},
+	{.name = "ERR",.level = LOG_ERR},
+	{.name = "WARN",.level = LOG_WARN},
+	{.name = "NOTICE",.level = LOG_NOTICE},
+	{.name = "INFO",.level = LOG_INFO},
+	{.name = "DEBUG",.level = LOG_DEBUG},
+	{.name = "VERB",.level = LOG_VERB},
+	{.name = "VVERB",.level = LOG_VVERB},
+	{.name = "VVVERB",.level = LOG_VVVERB},
+	{.name = "PVERB",.level = LOG_PVERB},
 	{.name = NULL}
 };
 
@@ -158,7 +158,7 @@ void _log(LOG_LEVEL log_level, const char *file, int line, int panic, const char
 
 	len +=
 	    ez_scnprintf(buf + len, size - len,
-			 "%04d-%02d-%02d %02d:%02d:%02d.%03d [%10s] %s:%d ",
+			 "%04d-%02d-%02d %02d:%02d:%02d.%03d [%6s] %s:%d ",
 			 tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
 			 tm.tm_hour, tm.tm_min, tm.tm_sec, (int)(tv.tv_usec / 1000),
 			 get_log_level_name(log_level), file, line);
