@@ -297,14 +297,13 @@ int64_t ez_create_time_event(ezEventLoop * eventLoop, int64_t period, ezTimeProc
 void ez_delete_time_event(ezEventLoop * eventLoop, int64_t id)
 {
     ezTimeEvent *te = NULL;
-	log_debug("delete time event [id:%li].", id);
-
     for (list_head *i = eventLoop->time_events.next; i != &eventLoop->time_events;) {
         te = cast_to_time_event(i);
         if (te->id == id) {
+			log_debug("delete time event [id:%li].", id);
             list_del(i);
             ez_free(te);
-            break;
+			return;
         } else {
             i = i->next;
         }
@@ -360,17 +359,17 @@ static int process_time_events(ezEventLoop * eventLoop)
 			list_del(tmp);
 
 			log_debug("call time event [id:%li]", te->id);
-			int retval = te->timeProc(eventLoop, te->id, te->clientData);
+			int ret_val = te->timeProc(eventLoop, te->id, te->clientData);
 			processed++;
 
-			if (retval <= AE_TIMER_END) {
+			if (ret_val <= AE_TIMER_END) {
 				log_debug("delete one time event [id:%li]", te->id);
 				ez_free(te);
 			} else {
-				if (retval == AE_TIMER_NEXT)
+				if (ret_val == AE_TIMER_NEXT)
 					te->when_ms = now_ms + te->period;
 				else
-    				te->when_ms = now_ms + retval;
+    				te->when_ms = now_ms + ret_val;
                 // 重新入队的加入reput链表
                 te->listNode.next = re_put;
                 re_put = &te->listNode;
@@ -432,8 +431,8 @@ static int ez_process_events(ezEventLoop * eventLoop, int flags)
 			}
 		}
 		if (shortest != NULL) {
-			tvp = (int)(shortest->when_ms - ez_get_cur_milliseconds());
-            if( tvp < 0 ) tvp = 100; 
+			tvp = (int) (shortest->when_ms - ez_get_cur_milliseconds());
+			if (tvp < 0) tvp = 100;
 		} else {
 			tvp = -1;	// wait for block
 		}
