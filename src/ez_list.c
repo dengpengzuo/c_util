@@ -38,3 +38,28 @@ void list_del(list_head * entry)
 	entry->next = NULL;
 	entry->prev = NULL;
 }
+
+void list_foreach(list_head *head, void (*func)(list_head *entry))
+{
+	list_head *i, *t;
+	for(i = head->next; i != head;) {
+		t = i;
+		i = i->next;
+		func(t);
+	}
+}
+
+void list_foreach2(list_head *head, EACH_RESULT (*func)(list_head *entry))
+{
+	list_head *i, *t;
+	for(i = head->next; i != head;) {
+		t = i;
+		i = i->next;
+		EACH_RESULT r = func(t);
+
+		if (r == BREAK_EACH)
+			break;
+		else if( r == CONTINUE_EACH)
+			continue;
+	}
+}
