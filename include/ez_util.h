@@ -5,6 +5,7 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <time.h>
 
 #define EZ_NOTUSED(V)	 ((void) V)
 
