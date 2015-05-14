@@ -53,4 +53,5 @@ int _vscnprintf(char *buf, size_t size, const char *fmt, va_list args);
 
 int64_t ez_get_cur_milliseconds();
 
+void ez_localtime_r(const time_t * _time_t, struct tm *_tm);
 #endif

@@ -22,6 +22,17 @@ int64_t ez_get_cur_milliseconds()
 	return milliseconds;
 }
 
+void ez_localtime_r(const time_t * _time_t, struct tm *_tm)
+{
+	#if defined(__linux__) || defined(linux)
+		localtime_r(_time_t, _tm);
+	#else defined(__MINGW__) || defined(__MINGW32__)
+		localtime_s(_tm, _time_t);
+	#else
+		#error "localtime_r not defined."
+	#endif
+}
+
 int _ez_atoi(uint8_t * line, size_t n)
 {
 	int value;

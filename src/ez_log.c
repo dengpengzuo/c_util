@@ -141,6 +141,7 @@ void _log(LOG_LEVEL log_level, const char *file, int line, int panic, const char
 	int save_error_no;
 	char buf[LOG_MAX_LEN];
 	struct timeval tv;
+	time_t cur_sec;
 	struct tm tm;
 
 	va_list args;
@@ -154,7 +155,8 @@ void _log(LOG_LEVEL log_level, const char *file, int line, int panic, const char
 	size = LOG_MAX_LEN;	/* size of output buffer */
 
 	gettimeofday(&tv, NULL);
-	localtime_r(&(tv.tv_sec), &tm);
+	cur_sec = tv.tv_sec;
+	ez_localtime_r(&cur_sec, &tm);
 
 	len +=
 	    ez_scnprintf(buf + len, size - len,
