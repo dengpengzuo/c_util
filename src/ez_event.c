@@ -427,7 +427,7 @@ static int ez_process_events(ezEventLoop * eventLoop, int flags)
 			// 第一个timeEvent就是最少的wait time.
 			if (!list_empty(&eventLoop->time_events)) {
 				shortest = cast_to_time_event(eventLoop->time_events.next);
-				log_info("find min wait time event [id:%li]", shortest->id);
+				log_debug("find min wait time event [id:%li]", shortest->id);
 			}
 		}
 		if (shortest != NULL) {

@@ -225,7 +225,7 @@ int main(int argc, char **argv)
 	EZ_NOTUSED(argv);
 
 	cust_signal_init();
-	log_init(LOG_DEBUG, NULL);
+	log_init(LOG_INFO, NULL);
 
 	int s = ez_net_tcp_server(port, "0.0.0.0", 1024); 	// 监听的SRC := 0.0.0.0
 	int s6 = ez_net_tcp6_server(port, "::", 1024);		// 监听的SRC := ::
