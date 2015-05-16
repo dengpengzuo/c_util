@@ -28,22 +28,27 @@ char read_char_from_stdin(void)
 int wait_quit(int c)
 {
 	char buf[44];
-	char s = 0;
-	int r = 0;
-	ssize_t nwrite = 0;
+    char red[16];
+	char s;
+	int r;
+	ssize_t nwrite , nread;
 
 	while (1) {
 		s = read_char_from_stdin();
 		if (s == 0)
 			break;
-		if (s == 'e' || s == 'q')
+        else if (s == 'e' || s == 'q')
 			break;
-		if (s == 'w' || s == 'W') {
+        else if (s == 'w' || s == 'W') {
 			r = ez_net_write(c, buf, sizeof(buf), &nwrite);
 			log_info("client id:%d write %d bytes, result: %d .", c, nwrite, r);
 			if (r == ANET_ERR)
 				break;
 		}
+        else if (s == 'r' || s == 'R') {
+            r = ez_net_read(c, red, sizeof(red), &nread);
+            log_hexdump(LOG_INFO, red, nwrite, "client id:%d read %d bytes, result: %d.", c, nread, r);
+        }
 	}
 
 	return 1;
@@ -64,6 +69,7 @@ int main(int argc, char **argv)
 
 	int c = ez_net_tcp_connect(addr, port);
 	if (c > 0) {
+		ez_net_set_non_block(c);
 		log_info("client %d connect server [%s:%d]", c, addr, port);
 		while (!wait_quit(c)) ;
 		ez_net_close_socket(c);
