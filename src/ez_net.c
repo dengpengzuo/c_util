@@ -1,17 +1,13 @@
-
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/stat.h>
 #include <sys/un.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <string.h>
 #include <netdb.h>
 #include <errno.h>
-#include <stdarg.h>
 #include <stdio.h>
 
 #include "ez_net.h"
@@ -102,14 +98,27 @@ static int ez_net_tcp_generic_accept(int s, struct sockaddr *sa, socklen_t * len
 {
 	int fd;
 	int ezerrno;
+
+#ifdef EZ_USE_ACCEPT4
+	fd = accept(s, sa, len, SOCK_NONBLOCK);
+#else
 	fd = accept(s, sa, len);
+#endif
 	if (fd == -1) {
 		ezerrno = errno;
-		if (ezerrno == EAGAIN || ezerrno == EWOULDBLOCK || ezerrno == EINTR) {
-			log_error("sever socket %d accept EAGAIN.", s);
+		// linux 上 #define EWOULDBLOCK EAGAIN
+		if (ezerrno == EAGAIN /*|| ezerrno == EWOULDBLOCK */ ) {
+			log_error("sever socket %d accept() not ready.", s);
 			return ANET_EAGAIN;
+		} else if(ezerrno == EMFILE || ezerrno == ENFILE) {
+			// file handle over, disabled accept.
+			log_warn("sever socket %d accept() error: %s \n You must disabled accept().", s, strerror(ezerrno));
+			return ANET_ACCEPT_FILEFD_OVER;
+		} else if (ezerrno == ECONNABORTED) {
+			log_warn("sever socket %d accept() error: %s", s, strerror(ezerrno));
+			return ANET_ERR;
 		} else {
-			log_error("sever socket %d accept error: %s", s, strerror(ezerrno));
+			log_error("sever socket %d accept() error: %s", s, strerror(ezerrno));
 			return ANET_ERR;
 		}
 	}
@@ -123,32 +132,30 @@ int ez_net_tcp_accept2(int s, char *ip, size_t ip_len, int *port)
 	socklen_t salen = sizeof(sa);
 	fd = ez_net_tcp_generic_accept(s, (struct sockaddr *)&sa, &salen);
 
-	if (fd == ANET_ERR)
-		return ANET_ERR;
-	else if (fd == ANET_EAGAIN)
-		return ANET_EAGAIN;
+	if (fd < ANET_OK) // accept error.
+		return fd;
 
 	ez_net_set_non_block(fd);
 
 	if (sa.ss_family == AF_INET) {
-		struct sockaddr_in *s = (struct sockaddr_in *)&sa;
+		struct sockaddr_in *si4 = (struct sockaddr_in *)&sa;
 		if (ip)
-			inet_ntop(AF_INET, (void *)&(s->sin_addr), ip, (socklen_t)ip_len);
+			inet_ntop(AF_INET, (void *)&(si4->sin_addr), ip, (socklen_t)ip_len);
 		if (port)
-			*port = ntohs(s->sin_port);
+			*port = ntohs(si4->sin_port);
 	} else {
-		struct sockaddr_in6 *s = (struct sockaddr_in6 *)&sa;
+		struct sockaddr_in6 *si6 = (struct sockaddr_in6 *)&sa;
 		if (ip)
-			inet_ntop(AF_INET6, (void *)&(s->sin6_addr), ip, (socklen_t)ip_len);
+			inet_ntop(AF_INET6, (void *)&(si6->sin6_addr), ip, (socklen_t)ip_len);
 		if (port)
-			*port = ntohs(s->sin6_port);
+			*port = ntohs(si6->sin6_port);
 	}
 	return fd;
 }
 
 int ez_net_close_socket(int s)
 {
-	close(s);
+	if (s > 0) close(s);
 	return ANET_OK;
 }
 
@@ -188,8 +195,7 @@ static int ez_net_tcp_connect_ex(const char *addr, int port, int flags)
 			if (errno == EINPROGRESS && (flags & ANET_CONNECT_NONBLOCK))
 				goto end;
 			else {
-				log_stderr("connect to host[%s:%d] failed, cause:[%s]!", addr, port,
-					   strerror(errno));
+				log_stderr("connect to host[%s:%d] failed, cause:[%s]!", addr, port, strerror(errno));
 			}
 			// close
 			if (s != ANET_ERR) {
@@ -360,10 +366,10 @@ static int ez_net_resolve_generic(char *host, char *ipbuf, size_t ipbuf_len, int
 	}
 	if (info->ai_family == AF_INET) {
 		struct sockaddr_in *sa = (struct sockaddr_in *)info->ai_addr;
-		inet_ntop(AF_INET, &(sa->sin_addr), ipbuf, ipbuf_len);
+		inet_ntop(AF_INET, &(sa->sin_addr), ipbuf, (socklen_t) ipbuf_len);
 	} else {
 		struct sockaddr_in6 *sa = (struct sockaddr_in6 *)info->ai_addr;
-		inet_ntop(AF_INET6, &(sa->sin6_addr), ipbuf, ipbuf_len);
+		inet_ntop(AF_INET6, &(sa->sin6_addr), ipbuf, (socklen_t) ipbuf_len);
 	}
 
 	freeaddrinfo(info);
@@ -384,12 +390,15 @@ int ez_net_resolve_host_ip(char *host, char *ipbuf, size_t ipbuf_len)
  * (unless error or EOF condition is encountered) */
 int ez_net_read(int fd, char *buf, size_t bufsize, ssize_t * nbytes)
 {
+	int ezerrno;
 	ssize_t r = read(fd, buf, bufsize);
 	if (r == 0) {
 		*nbytes = 0;
 	} else if (r == -1) {
 		*nbytes = 0;
-		if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
+		ezerrno = errno;
+		// linux define EWOULDBLOCK EAGAIN.
+		if (ezerrno == EAGAIN /*|| ezerrno == EWOULDBLOCK || ezerrno == EINTR */)
 			return ANET_EAGAIN;	/* 非阻塞模式 */
 		else
 			return ANET_ERR;
@@ -403,12 +412,15 @@ int ez_net_read(int fd, char *buf, size_t bufsize, ssize_t * nbytes)
  * (unless error is encountered) */
 int ez_net_write(int fd, char *buf, size_t bufsize, ssize_t * nbytes)
 {
+	int ezerrno;
 	ssize_t r = write(fd, buf, bufsize);
 	if (r == 0) {
 		*nbytes = 0;
 	} else if (r == -1) {
 		*nbytes = 0;
-		if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)
+		ezerrno = errno;
+		// linux define EWOULDBLOCK EAGAIN.
+		if (ezerrno == EAGAIN)
 			return ANET_EAGAIN;	/* 非阻塞模式 */
 		else
 			return ANET_ERR;
@@ -433,13 +445,13 @@ int ez_net_peer_name(int fd, char *ip, size_t ip_len, int *port)
 	if (sa.ss_family == AF_INET) {
 		struct sockaddr_in *s = (struct sockaddr_in *)&sa;
 		if (ip)
-			inet_ntop(AF_INET, (void *)&(s->sin_addr), ip, ip_len);
+			inet_ntop(AF_INET, (void *)&(s->sin_addr), ip, (socklen_t) ip_len);
 		if (port)
 			*port = ntohs(s->sin_port);
 	} else {
 		struct sockaddr_in6 *s = (struct sockaddr_in6 *)&sa;
 		if (ip)
-			inet_ntop(AF_INET6, (void *)&(s->sin6_addr), ip, ip_len);
+			inet_ntop(AF_INET6, (void *)&(s->sin6_addr), ip, (socklen_t) ip_len);
 		if (port)
 			*port = ntohs(s->sin6_port);
 	}
@@ -461,13 +473,13 @@ int ez_net_socket_name(int fd, char *ip, size_t ip_len, int *port)
 	if (sa.ss_family == AF_INET) {
 		struct sockaddr_in *s = (struct sockaddr_in *)&sa;
 		if (ip)
-			inet_ntop(AF_INET, (void *)&(s->sin_addr), ip, ip_len);
+			inet_ntop(AF_INET, (void *)&(s->sin_addr), ip, (socklen_t) ip_len);
 		if (port)
 			*port = ntohs(s->sin_port);
 	} else {
 		struct sockaddr_in6 *s = (struct sockaddr_in6 *)&sa;
 		if (ip)
-			inet_ntop(AF_INET6, (void *)&(s->sin6_addr), ip, ip_len);
+			inet_ntop(AF_INET6, (void *)&(s->sin6_addr), ip, (socklen_t) ip_len);
 		if (port)
 			*port = ntohs(s->sin6_port);
 	}
