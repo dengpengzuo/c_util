@@ -47,7 +47,7 @@ int wait_quit(int c)
 		}
         else if (s == 'r' || s == 'R') {
             r = ez_net_read(c, red, sizeof(red), &nread);
-            log_hexdump(LOG_INFO, red, nwrite, "client id:%d read %d bytes, result: %d.", c, nread, r);
+            log_hexdump(LOG_INFO, red, nread, "client id:%d read %d bytes, result: %d.", c, nread, r);
         }
 	}
 
