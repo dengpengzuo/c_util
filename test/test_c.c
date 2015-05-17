@@ -69,6 +69,7 @@ int main(int argc, char **argv)
 
 	int c = ez_net_tcp_connect(addr, port);
 	if (c > 0) {
+		ez_net_set_non_block(c);
 		log_info("client %d connect server [%s:%d]", c, addr, port);
 		ez_net_set_non_block(c);
 		while (!wait_quit(c)) ;
