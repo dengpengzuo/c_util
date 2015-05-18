@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <unistd.h>
 #include <signal.h>
 #include <string.h>
 #include <errno.h>
@@ -176,15 +175,15 @@ void accept_handler(ezEventLoop * eventLoop, int s, void *clientData, int mask)
 	EZ_NOTUSED(eventLoop);
 	EZ_NOTUSED(clientData);
 	EZ_NOTUSED(mask);
+	char client_addr[256];
+	int  client_port;
+	int c = ez_net_tcp_accept2(s, client_addr, 255, &client_port);
 
-	int c = ez_net_tcp_accept(s);
-	if (c == ANET_EAGAIN) {
+	if (c < ANET_OK) {
 		return;
 	}
-	if (c == ANET_ERR) {
-		log_info("server accept error [%d,%s]", errno, strerror(errno));
-		return;
-	}
+	client_addr[255] = '\0';
+	log_info("server accept client [id:%d, addr:%s, port:%d]", c, client_addr, client_port);
 	ez_worker_push_client(c);
 }
 

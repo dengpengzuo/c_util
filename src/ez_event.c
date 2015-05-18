@@ -70,8 +70,11 @@ struct ezEventLoop_t {
 	ezFiredEvent *fired;			/* Fired events */
 };
 
-// linux epoll code
-#include "ez_epoll.c"
+#if defined(__linux__)
+    #include "ez_epoll.c"
+#else
+    #error "not support os!"
+#endif
 
 static ezFileEvent *ez_fund_file_event(ezEventLoop * eventLoop, int fd);
 
@@ -189,12 +192,11 @@ int ez_create_file_event(ezEventLoop * eventLoop, int fd, int mask, ezFileProc p
 {
 	ezFileEvent *fe = ez_fund_file_event(eventLoop, fd);
 	int oldmask;
-	int add;
+	int is_new = 0;
 
 	if (fe == NULL) {
 		if (eventLoop->count >= eventLoop->setsize) {
-			log_error("event loop create file event count's over setsize:%d !",
-				  eventLoop->setsize);
+			log_error("event loop create file event count's over setsize:%d !", eventLoop->setsize);
 			return AE_ERR;
 		}
 		// 从回收链接表中取
@@ -206,7 +208,7 @@ int ez_create_file_event(ezEventLoop * eventLoop, int fd, int mask, ezFileProc p
 			fe = ez_malloc(sizeof(ezFileEvent));
 		}
 
-		add = 1;
+		is_new = 1;
 		oldmask = AE_NONE;
 
 		fe->fd = fd;
@@ -214,32 +216,33 @@ int ez_create_file_event(ezEventLoop * eventLoop, int fd, int mask, ezFileProc p
 		fe->rfileProc = proc;
 		fe->clientData = clientData;
 	} else {
-		add = 0;
+		is_new = 0;
 		oldmask = fe->mask;
-		fe->mask |= mask;
-
-		// update proc clientData
-		if (proc != NULL && fe->rfileProc != proc) {
-			log_warn("file fd:%d add new mask event's proc not same!", fe->fd);
-			fe->rfileProc = proc;
-		}
-		if (clientData != NULL && fe->clientData != clientData) {
-			log_warn("file fd:%d add new mask  event's proc args not same!", fe->fd);
-			fe->clientData = clientData;
-		}
 	}
 
 	if (ezApiAddEvent(eventLoop, fd, mask, oldmask) == -1) {
-		ez_free(fe);
+		if(is_new) ez_free(fe);
 		return AE_ERR;
 	}
+    
+    if (is_new) {
+        ++(eventLoop->count);
+        rbtree_insert(&eventLoop->rbtree_events, &(fe->rb_node));
+    } else {
+        // update file event's properties [mask|proc|clientData].
+        fe->mask |= mask;
 
-	if (add) {
-		++(eventLoop->count);
-		rbtree_insert(&eventLoop->rbtree_events, &(fe->rb_node));
-	}
+        if (proc != NULL && fe->rfileProc != proc) {
+            log_warn("file fd:%d add new mask event's proc not same!", fe->fd);
+            fe->rfileProc = proc;
+        }
+        if (clientData != NULL && fe->clientData != clientData) {
+            log_warn("file fd:%d add new mask  event's proc args not same!", fe->fd);
+            fe->clientData = clientData;
+        }
+    }
 
-	return AE_OK;
+    return AE_OK;
 }
 
 void ez_delete_file_event(ezEventLoop * eventLoop, int fd, int mask)
