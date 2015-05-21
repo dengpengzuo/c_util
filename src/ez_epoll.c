@@ -127,9 +127,15 @@ static int ezApiPoll(ezEventLoop * eventLoop, int timeout)
 {
 	ezApiState *state = eventLoop->apidata;
 	int retval, numevents = 0;
+	int err;
 	if (timeout < 0)
 		timeout = -1;
-	retval = epoll_wait(state->epfd, state->events, eventLoop->setsize, timeout);
+
+	do {
+       retval = epoll_wait(state->epfd, state->events, eventLoop->setsize, timeout);
+       // was interrupted try again.
+    } while (retval == -1 && ((err = errno) == EINTR));
+
 	if (retval > 0) {
 		int j, i;
 

@@ -398,7 +398,7 @@ int ez_net_read(int fd, char *buf, size_t bufsize, ssize_t * nbytes)
 		*nbytes = 0;
 		ezerrno = errno;
 		// linux define EWOULDBLOCK EAGAIN.
-		if (ezerrno == EAGAIN /*|| ezerrno == EWOULDBLOCK || ezerrno == EINTR */)
+		if (ezerrno == EAGAIN || ezerrno == EINTR /*|| ezerrno == EWOULDBLOCK */)
 			return ANET_EAGAIN;	/* 非阻塞模式 */
 		else
 			return ANET_ERR;
@@ -420,7 +420,7 @@ int ez_net_write(int fd, char *buf, size_t bufsize, ssize_t * nbytes)
 		*nbytes = 0;
 		ezerrno = errno;
 		// linux define EWOULDBLOCK EAGAIN.
-		if (ezerrno == EAGAIN)
+		if (ezerrno == EAGAIN || ezerrno == EINTR )
 			return ANET_EAGAIN;	/* 非阻塞模式 */
 		else
 			return ANET_ERR;
