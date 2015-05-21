@@ -100,7 +100,7 @@ static int ez_net_tcp_generic_accept(int s, struct sockaddr *sa, socklen_t * len
 	int ezerrno;
 
 #ifdef EZ_USE_ACCEPT4
-	fd = accept(s, sa, len, SOCK_NONBLOCK);
+	fd = accept4(s, sa, len, SOCK_NONBLOCK | SOCK_CLOEXEC);
 #else
 	fd = accept(s, sa, len);
 #endif
@@ -122,6 +122,13 @@ static int ez_net_tcp_generic_accept(int s, struct sockaddr *sa, socklen_t * len
 			return ANET_ERR;
 		}
 	}
+
+#ifdef EZ_USE_ACCEPT4
+	// 不作其他处理.
+#else
+	ez_net_set_closexec(fd);
+	ez_net_set_non_block(fd);
+#endif
 	return fd;
 }
 
@@ -134,8 +141,6 @@ int ez_net_tcp_accept2(int s, char *ip, size_t ip_len, int *port)
 
 	if (fd < ANET_OK) // accept error.
 		return fd;
-
-	ez_net_set_non_block(fd);
 
 	if (sa.ss_family == AF_INET) {
 		struct sockaddr_in *si4 = (struct sockaddr_in *)&sa;
@@ -236,6 +241,24 @@ int ez_net_set_send_buf_size(int fd, int buffsize)
 {
 	if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &buffsize, sizeof(buffsize)) == -1) {
 		log_error("setsockopt SO_SNDBUF: %s", strerror(errno));
+		return ANET_ERR;
+	}
+	return ANET_OK;
+}
+
+int ez_net_set_closexec(int fd)
+{
+	int flags;
+
+	/* Set the socket non-blocking.
+	 * Note that fcntl(2) for F_GETFL and F_SETFL can't be
+	 * interrupted by a signal. */
+	if ((flags = fcntl(fd, F_GETFL)) == -1) {
+		log_error("fcntl(F_GETFL): %s", strerror(errno));
+		return ANET_ERR;
+	}
+	if (fcntl(fd, F_SETFL, flags | FD_CLOEXEC) == -1) {
+		log_error("fcntl(F_SETFL,FD_CLOEXEC): %s", strerror(errno));
 		return ANET_ERR;
 	}
 	return ANET_OK;

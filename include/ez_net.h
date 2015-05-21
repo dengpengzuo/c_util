@@ -33,6 +33,7 @@ int ez_net_write(int fd, char *buf, size_t bufsize, ssize_t *nbytes);
 int ez_net_set_send_buf_size(int fd, int buffsize);
 
 int ez_net_set_non_block(int fd);
+int ez_net_set_closexec(int fd);
 int ez_net_set_reuse_addr(int fd);
 
 int ez_net_set_tcp_nodelay(int fd, int val);
