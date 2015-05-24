@@ -1,4 +1,5 @@
 #include <unistd.h>
+#include <errno.h>
 #include <sys/epoll.h>
 #include <sys/eventfd.h>
 
@@ -127,14 +128,14 @@ static int ezApiPoll(ezEventLoop * eventLoop, int timeout)
 {
 	ezApiState *state = eventLoop->apidata;
 	int retval, numevents = 0;
-	int err;
+	//int err;
 	if (timeout < 0)
 		timeout = -1;
 
-	do {
-       retval = epoll_wait(state->epfd, state->events, eventLoop->setsize, timeout);
-       // was interrupted try again.
-    } while (retval == -1 && ((err = errno) == EINTR));
+	//do {
+        retval = epoll_wait(state->epfd, state->events, eventLoop->setsize, timeout);
+        // was interrupted try again.
+    //} while (retval == -1 && ((err = errno) == EINTR));
 
 	if (retval > 0) {
 		int j, i;
