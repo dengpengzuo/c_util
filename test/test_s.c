@@ -21,6 +21,7 @@ struct ez_signal {
     char *signame;
     int  flags;
     void (*handler)(int signo);
+    void (*cust_handler)(struct ez_signal *sig);
 };
 
 static ezWorker boss ;
@@ -28,16 +29,39 @@ static ezWorker boss ;
 static ezWorker workers[WORKER_SIZE];
 static int last_worker = 0;
 
-static void cust_signal_handler(int signo);
+static void dispatch_signal_handler(int signo);
+
+static void cust_signal_handler(struct ez_signal *sig);
 
 static struct ez_signal cust_signals[] = {
-    { SIGHUP,  "SIGHUP",  0, SIG_IGN },
-    { SIGPIPE, "SIGPIPE", 0, SIG_IGN },
-    { SIGINT,  "SIGINT" , 0, cust_signal_handler },
-    { SIGQUIT, "SIGQUIT", 0, cust_signal_handler },
-	{ SIGTERM, "SIGTERM", 0, cust_signal_handler },
-    { 0,       "NULL",    0, NULL }
+    { SIGHUP,  "SIGHUP",  0, SIG_IGN, NULL },
+    { SIGPIPE, "SIGPIPE", 0, SIG_IGN, NULL },
+    { SIGINT,  "SIGINT" , 0, SIG_DFL, cust_signal_handler },
+    { SIGQUIT, "SIGQUIT", 0, SIG_DFL, cust_signal_handler },
+	{ SIGTERM, "SIGTERM", 0, SIG_DFL, cust_signal_handler },
+    { 0,       "NULL",    0, NULL, NULL }
 };
+
+static void cust_signal_handler(struct ez_signal *sig)
+{
+    EZ_NOTUSED(sig);
+	ez_stop_event_loop(boss.w_event);
+}
+
+static void dispatch_signal_handler(int signo)
+{
+    struct ez_signal *sig;
+    for (sig = cust_signals; sig->signo != 0; sig++) {
+        if (sig->signo == signo) {
+            break;
+        }
+    }
+
+	log_info("signal %d (%s) received", signo, sig->signame);
+	if (sig->signo == 0 || sig->cust_handler == NULL ) return;
+
+    sig->cust_handler(sig);
+}
 
 static void cust_signal_init(void)
 {
@@ -48,8 +72,10 @@ static void cust_signal_init(void)
 
 		struct sigaction sa;
         memset(&sa, 0, sizeof(sa));
-
-        sa.sa_handler = sig->handler;
+        if(sig->handler == SIG_DFL)
+            sa.sa_handler = dispatch_signal_handler;
+        else
+            sa.sa_handler = sig->handler;
         sa.sa_flags = sig->flags;
         sigemptyset(&sa.sa_mask);
 
@@ -61,74 +87,51 @@ static void cust_signal_init(void)
     }
 }
 
-static void cust_signal_handler(int signo)
-{
-    struct ez_signal *sig;
-    for (sig = cust_signals; sig->signo != 0; sig++) {
-        if (sig->signo == signo) {
-            break;
-        }
-    }
-
-	log_info("signal %d (%s) received", signo, sig->signame);
-	if (signo == 0) return;
-
-    switch (signo) {
-    case SIGINT:
-    case SIGQUIT:
-	case SIGTERM:
-		ez_stop_event_loop(boss.w_event);
-        break;
-    default:
-        ;
-    }
-}
-
-void *ez_worker_thread_run(void *t)
+void *worker_thread_proc(void *t)
 {
 	ezWorker *worker = (ezWorker *) t;
 	worker->thid = pthread_self();
 
-	log_info("worker id: %d run event loop .", worker->id);
+	log_info("worker %d > run event loop .", worker->id);
 	ez_run_event_loop(worker->w_event);
+	log_info("worker %d > stop event loop .", worker->id);
 	return NULL;
 }
 
 void read_client_handler(ezEventLoop * eventLoop, int c, void *clientData, int mask)
 {
-#define buf_size 32
-	char buf[buf_size + 1];
+	EZ_NOTUSED(clientData);
+#define BUF_SIZE 32
+	char buf[BUF_SIZE + 1];
 	int r = 0;
 	ssize_t nread = 0;
+	ssize_t nwrite = 0;
 
-	EZ_NOTUSED(clientData);
-	EZ_NOTUSED(mask);
-
-	r = ez_net_read(c, buf, buf_size, &nread);
-	if (r == ANET_ERR) {
-		log_info("read client %d error:[%d,%s]!", c, errno, strerror(errno));
-		ez_delete_file_event(eventLoop, c, AE_READABLE);
-		ez_net_close_socket(c);
-		return;
-
-	} else if (r == ANET_EAGAIN) {
-		if (nread == 0)
+	if ((mask & AE_READABLE) == AE_READABLE) {
+		r = ez_net_read(c, buf, BUF_SIZE, &nread);
+		if (r == ANET_EAGAIN) {
+			if (nread == 0) return ; // 读不出来或者读取来部分，下次继续读
+		} else if (r == ANET_OK && nread == 0) {
+			// ez_event 会在 client 端close也引发 AE_READABLE 事件，
+			// 这时读取这个socket的结果就是读取0字节内容。
+			log_info("client %d > closed connection !", c);
+			ez_delete_file_event(eventLoop, c, AE_READABLE);
+			ez_net_close_socket(c);
 			return;
-	} else if (r == ANET_OK && nread == 0) {
-		// ez_event 会在 client 端close也引发 AE_READABLE 事件，
-		// 这时读取这个socket的结果就是读取0字节内容。
-		log_info("client %d closed connection !", c);
-		ez_delete_file_event(eventLoop, c, AE_READABLE);
-		ez_net_close_socket(c);
-		return;
-	}
-	if (nread) {
-		buf[nread] = '\0';
-		log_hexdump(LOG_INFO, buf, nread, "read client id:%d read %d bytes!", c, nread);
+		} else if (r == ANET_ERR) {
+			log_info("client %d > read error:[%d,%s]!", c, errno, strerror(errno));
+		}
+		if (nread) {
+			buf[nread] = '\0';
+			log_hexdump(LOG_INFO, buf, nread, "client %d > read %d bytes!", c, nread);
+
+			r = ez_net_write(c, buf, (size_t) nread, &nwrite);
+			log_info("client %d > write %d bytes, result %d!", c, nwrite, r);
+		}
 	}
 }
 
-void ez_worker_push_client(int c)
+void worker_push_client(int c)
 {
 	int wid = (last_worker + 1) % WORKER_SIZE;
 	last_worker = wid;
@@ -137,9 +140,9 @@ void ez_worker_push_client(int c)
 	ez_net_tcp_enable_nodelay(c);
 	ez_net_tcp_keepalive(c, 30);
 
-	log_info("worker id:%d add new client %d .", workers[wid].id, c);
+	log_info("worker %d > add new client %d .", workers[wid].id, c);
 	if (ez_create_file_event(workers[wid].w_event, c, AE_READABLE, read_client_handler, NULL) == AE_ERR) {
-		log_info("worker id:%d add new client %d(AE_READABLE) failed!", workers[wid].id, c);
+		log_info("worker %d > add new client %d(AE_READABLE) failed!", workers[wid].id, c);
 		ez_net_close_socket(c);
 	}
 }
@@ -150,22 +153,16 @@ void init_workers()
 	for (int i = 0; i < WORKER_SIZE; ++i) {
 		workers[i].id = i + 1;
 
-		log_info("create worker id: %d event loop .", workers[i].id);
 		workers[i].w_event = ez_create_event_loop(1024);
-		pthread_create(&thid, NULL, ez_worker_thread_run, &workers[i]);
+		pthread_create(&thid, NULL, worker_thread_proc, &workers[i]);
 	}
 }
 
 void stop_free_workers()
 {
 	for (int i = 0; i < WORKER_SIZE; ++i) {
-		log_info("send worker id: %d exit event loop .", workers[i].id);
 		ez_stop_event_loop(workers[i].w_event);
-
-		log_info("wait worker id: %d thread exit.", workers[i].id);
 		pthread_join(workers[i].thid, NULL);
-
-		log_info("delete worker id: %d event loop .", workers[i].id);
 		ez_delete_event_loop(workers[i].w_event);
 	}
 }
@@ -184,20 +181,20 @@ void accept_handler(ezEventLoop * eventLoop, int s, void *clientData, int mask)
 	}
 	client_addr[255] = '\0';
 	log_info("server accept client [id:%d, addr:%s, port:%d]", c, client_addr, client_port);
-	ez_worker_push_client(c);
+	worker_push_client(c);
 }
 
 int time_out_handler(ezEventLoop * eventLoop, int64_t timeId, void *clientData)
 {
 	EZ_NOTUSED(eventLoop);
 	EZ_NOTUSED(clientData);
-	log_info("==> timeId %li !", timeId);
+	log_info("timeId %li fired, next go.", timeId);
+
 	return AE_TIMER_NEXT;
 }
 
 void init_boss()
 {
-	log_info("create main event loop...");
 	boss.id = 0;
 	boss.thid = pthread_self();
 	boss.w_event = ez_create_event_loop(128);
@@ -205,13 +202,13 @@ void init_boss()
 
 void run_boss()
 {
-	log_info("run main event loop .");
+	log_info("main > run event loop .");
 	ez_run_event_loop(boss.w_event);
 }
 
 void stop_free_boss()
 {
-	log_info("stop main event loop exit, delete it!");
+	log_info("main > stop event loop.");
 	ez_stop_event_loop(boss.w_event);
 	ez_delete_event_loop(boss.w_event);
 }
@@ -237,8 +234,7 @@ int main(int argc, char **argv)
 	ez_create_file_event(boss.w_event, s, AE_READABLE, accept_handler, NULL);
 	ez_create_file_event(boss.w_event, s6, AE_READABLE, accept_handler, NULL);
 	// test time out.
-	ez_create_time_event(boss.w_event, 5000, time_out_handler, NULL);
-	ez_create_time_event(boss.w_event, 1000, time_out_handler, NULL);
+	// ez_create_time_event(boss.w_event, 5000, time_out_handler, NULL);
 
 	run_boss();
 	stop_free_boss();

@@ -1,81 +1,137 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <errno.h>
 #include <unistd.h>
 #include <signal.h>
+#include <string.h>
 
-#include <ez_util.h>
 #include <ez_net.h>
 #include <ez_log.h>
 
-char read_char_from_stdin(void)
-{
-	char buf[2];
-	ssize_t nread;
-	int r;
+struct ez_signal {
+    int signo;
+    char *signame;
+    int flags;
 
-	while (1) {
-		r = ez_net_read(STDIN_FILENO, buf, 2, &nread);
+    void (*handler)(int signo);
 
-		if (r == ANET_OK && nread > 0)
-			return buf[0];
-		else if (r == ANET_ERR)
-			return 0;
-		else
-			continue;
-	}
-}
+    void (*cust_handler)(struct ez_signal *sig);
+};
 
-int wait_quit(int c)
-{
-	char buf[44];
-    char red[16];
-	char s;
-	int r;
-	ssize_t nwrite , nread;
+static void dispatch_signal_handler(int signo);
 
-	while (1) {
-		s = read_char_from_stdin();
-		if (s == 0)
-			break;
-        else if (s == 'e' || s == 'q')
-			break;
-        else if (s == 'w' || s == 'W') {
-			r = ez_net_write(c, buf, sizeof(buf), &nwrite);
-			log_info("client id:%d write %d bytes, result: %d .", c, nwrite, r);
-			if (r == ANET_ERR)
-				break;
-		}
-        else if (s == 'r' || s == 'R') {
-            r = ez_net_read(c, red, sizeof(red), &nread);
-            log_hexdump(LOG_INFO, red, nread, "client id:%d read %d bytes, result: %d.", c, nread, r);
+static struct ez_signal cust_signals[] = {
+        {SIGHUP,  "SIGHUP",  0, SIG_IGN, NULL},
+        {SIGPIPE, "SIGPIPE", 0, SIG_IGN, NULL},
+
+        {SIGINT,  "SIGINT",  0, SIG_IGN, NULL},
+        {SIGQUIT, "SIGQUIT", 0, SIG_IGN, NULL},
+        {SIGTERM, "SIGTERM", 0, SIG_IGN, NULL},
+        {0,       "NULL",    0, NULL,    NULL}
+};
+
+static void dispatch_signal_handler(int signo) {
+    struct ez_signal *sig;
+    for (sig = cust_signals; sig->signo != 0; sig++) {
+        if (sig->signo == signo) {
+            break;
         }
-	}
-
-	return 1;
-}
-
-int main(int argc, char **argv)
-{
-	int port = 9090;
-	char *addr = "localhost";
-    if(argc > 1) {
-    	addr = argv[1];
     }
 
-	signal(SIGHUP, SIG_IGN);
-	signal(SIGPIPE, SIG_IGN);
+    log_info("signal %d (%s) received", signo, sig->signame);
+    if (sig->signo == 0 || sig->cust_handler == NULL) return;
 
-	log_init(LOG_VVERB, NULL);
+    sig->cust_handler(sig);
+}
 
-	int c = ez_net_tcp_connect(addr, port);
-	if (c > 0) {
-		ez_net_set_non_block(c);
-		log_info("client %d connect server [%s:%d]", c, addr, port);
-		ez_net_set_non_block(c);
-		while (!wait_quit(c)) ;
-		ez_net_close_socket(c);
-	}
+static void cust_signal_init(void) {
+    struct ez_signal *sig;
+    int status;
 
-	log_release();
-	return 0;
+    for (sig = cust_signals; sig->signo != 0; sig++) {
+
+        struct sigaction sa;
+        memset(&sa, 0, sizeof(sa));
+        if (sig->handler == SIG_DFL)
+            sa.sa_handler = dispatch_signal_handler;
+        else
+            sa.sa_handler = sig->handler;
+        sa.sa_flags = sig->flags;
+        sigemptyset(&sa.sa_mask);
+
+        status = sigaction(sig->signo, &sa, NULL);
+        if (status < 0) {
+            log_error("sigaction(%s) failed: %s", sig->signame, strerror(errno));
+            return;
+        }
+    }
+}
+
+char read_char_from_stdin(void) {
+    char buf[2];
+    ssize_t nread;
+    int r;
+
+    while (1) {
+        r = ez_net_read(STDIN_FILENO, buf, 2, &nread);
+
+        if (r == ANET_OK && nread > 0)
+            return buf[0];
+        else if (r == ANET_ERR)
+            return 0;
+        else
+            continue;
+    }
+}
+
+int wait_quit(int c) {
+    char buf[44];
+    char red[16];
+    char s;
+    int r;
+    ssize_t nwrite, nread;
+
+    while (1) {
+        s = read_char_from_stdin();
+        if (s == 0)
+            break;
+        else if (s == 'e' || s == 'q') {
+            break;
+        } else if (s == 'w' || s == 'W') {
+            r = ez_net_write(c, buf, sizeof(buf), &nwrite);
+            log_info("client %d > write %d bytes, result: %d .", c, nwrite, r);
+            // 1.对端已经关闭,写入[result=>NET_OK  , nwrite => (0-N)].
+            // 2.对端已经关闭,写入[result=>ANET_ERR, nwrite =>  0   ].
+        }
+        else if (s == 'r' || s == 'R') {
+            r = ez_net_read(c, red, sizeof(red), &nread);
+            log_hexdump(LOG_INFO, red, nread, "client %d > read %d bytes, result: %d.", c, nread, r);
+            // 对端已经关闭下，读取一直是[result=>NET_OK, nread => 0]
+        }
+    }
+    ez_net_close_socket(c);
+    return 1;
+}
+
+int main(int argc, char **argv) {
+    int port = 9090;
+    char *addr = "localhost";
+    if (argc > 1) {
+        addr = argv[1];
+    }
+
+    cust_signal_init();
+
+    log_init(LOG_VVERB, NULL);
+
+    int c = ez_net_tcp_connect(addr, port);
+    if (c > 0) {
+        ez_net_set_non_block(c);
+        log_info("client %d > connect server [%s:%d]", c, addr, port);
+        ez_net_set_non_block(c);
+        wait_quit(c);
+    }
+
+    log_release();
+    return 0;
 }

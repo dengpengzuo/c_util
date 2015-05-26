@@ -4,7 +4,7 @@
 
 #define ANET_OK            0
 #define ANET_ERR          -1
-#define ANET_EAGAIN       -2
+#define ANET_EAGAIN       (-EAGAIN)
 
 /* create server */
 int ez_net_tcp_server(int port, char *bindaddr, int backlog);
