@@ -114,20 +114,25 @@ int wait_quit(int c) {
 }
 
 int main(int argc, char **argv) {
-    int port = 9090;
-    char *addr = "localhost";
+    char *svr_addr = "localhost";
+    int   svr_port = 9090;
+    char  socket_name[256];
+    int   socket_port ;
+
     if (argc > 1) {
-        addr = argv[1];
+        svr_addr = argv[1];
     }
 
     cust_signal_init();
 
     log_init(LOG_VVERB, NULL);
 
-    int c = ez_net_tcp_connect(addr, port);
+    int c = ez_net_tcp_connect(svr_addr, svr_port);
     if (c > 0) {
-        ez_net_set_non_block(c);
-        log_info("client %d > connect server [%s:%d]", c, addr, port);
+        ez_net_socket_name(c, socket_name, 255, &socket_port);
+        socket_name[255] = '\0';
+        log_info("client[id:%d %s:%d -> %s:%d] connect success.", c, socket_name, socket_port, svr_addr, svr_port);
+
         ez_net_set_non_block(c);
         wait_quit(c);
     }

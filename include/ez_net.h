@@ -43,8 +43,10 @@ int ez_net_set_tcp_nodelay(int fd, int val);
 int ez_net_tcp_keepalive(int fd, int interval);
 int ez_net_set_ipv6_only(int fd);
 
-/* get socket's ip port info */
+/* get socket's peer connected client ip port info */
 int ez_net_peer_name(int fd, char *ip, size_t ip_len, int *port);
+
+/** get socket's address ip port info */
 int ez_net_socket_name(int fd, char *ip, size_t ip_len, int *port);
 
 int ez_net_resolve_host_name(char *host, char *ipbuf, size_t ipbuf_len);

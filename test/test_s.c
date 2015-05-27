@@ -110,7 +110,7 @@ void read_client_handler(ezEventLoop * eventLoop, int c, void *clientData, int m
 	if ((mask & AE_READABLE) == AE_READABLE) {
 		r = ez_net_read(c, buf, BUF_SIZE, &nread);
 		if (r == ANET_EAGAIN) {
-			if (nread == 0) return ; // 读不出来或者读取来部分，下次继续读
+			if (nread == 0) return ; // 读不出来或者数据没有来，下次继续读
 		} else if (r == ANET_OK && nread == 0) {
 			// ez_event 会在 client 端close也引发 AE_READABLE 事件，
 			// 这时读取这个socket的结果就是读取0字节内容。
@@ -174,13 +174,16 @@ void accept_handler(ezEventLoop * eventLoop, int s, void *clientData, int mask)
 	EZ_NOTUSED(mask);
 	char client_addr[256];
 	int  client_port;
-	int c = ez_net_tcp_accept2(s, client_addr, 255, &client_port);
+	int c = ez_net_tcp_accept(s);
 
 	if (c < ANET_OK) {
 		return;
 	}
+
+	ez_net_peer_name(c, client_addr, 255, &client_port);
 	client_addr[255] = '\0';
-	log_info("server accept client [id:%d, addr:%s, port:%d]", c, client_addr, client_port);
+	log_info("server accept client [id:%d, %s:%d]", c, client_addr, client_port);
+
 	worker_push_client(c);
 }
 
