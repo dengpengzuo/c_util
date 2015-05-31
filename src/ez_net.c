@@ -237,9 +237,18 @@ int ez_net_tcp_connect_non_block(const char *addr, int port)
 }
 
 /* socket option */
-int ez_net_set_send_buf_size(int fd, int buffsize)
+int ez_net_set_send_buf_size(int fd, int bufsize)
 {
-	if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &buffsize, sizeof(buffsize)) == -1) {
+	if (setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &bufsize, sizeof(bufsize)) == -1) {
+		log_error("setsockopt SO_SNDBUF: %s", strerror(errno));
+		return ANET_ERR;
+	}
+	return ANET_OK;
+}
+
+int ez_net_set_recv_buf_size(int fd, int bufsize)
+{
+	if (setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &bufsize, sizeof(bufsize)) == -1) {
 		log_error("setsockopt SO_SNDBUF: %s", strerror(errno));
 		return ANET_ERR;
 	}
@@ -315,6 +324,10 @@ int ez_net_tcp_keepalive(int fd, int interval)
 		return ANET_ERR;
 	}
 #ifdef __linux__
+    // linux是在空闲7200秒后，进行最大9次发送控测报文，每次间隔 75 秒。
+    // net.ipv4.tcpkeepalivetime = 7200
+    // net.ipv4.tcpkeepaliveprobes = 9
+    // net.ipv4.tcpkeepaliveintvl = 75
 	if (interval > 0) {
 		/* Default settings are more or less garbage, with the keepalive time
 		 * set to 7200 by default on Linux. Modify settings to make the feature
@@ -327,7 +340,6 @@ int ez_net_tcp_keepalive(int fd, int interval)
 			log_error("setsockopt linux TCP_KEEPIDLE: %s", strerror(errno));
 			return ANET_ERR;
 		}
-
 		/* Send next probes after the specified interval. Note that we set the
 		 * delay as interval / 3, as we send three probes before detecting
 		 * an error (see the next setsockopt call). */

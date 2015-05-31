@@ -27,7 +27,6 @@ struct ez_signal {
 static ezWorker boss ;
 #define WORKER_SIZE			4
 static ezWorker workers[WORKER_SIZE];
-static int last_worker = 0;
 
 static void dispatch_signal_handler(int signo);
 
@@ -101,7 +100,7 @@ void *worker_thread_proc(void *t)
 void read_client_handler(ezEventLoop * eventLoop, int c, void *clientData, int mask)
 {
 	EZ_NOTUSED(clientData);
-#define BUF_SIZE 32
+#define BUF_SIZE 16
 	char buf[BUF_SIZE + 1];
 	int r = 0;
 	ssize_t nread = 0;
@@ -114,7 +113,7 @@ void read_client_handler(ezEventLoop * eventLoop, int c, void *clientData, int m
 		} else if (r == ANET_OK && nread == 0) {
 			// ez_event 会在 client 端close也引发 AE_READABLE 事件，
 			// 这时读取这个socket的结果就是读取0字节内容。
-			log_info("client %d > closed connection !", c);
+            log_info("发现客户端 %d 已经关闭，被动关闭socket!", c);
 			ez_delete_file_event(eventLoop, c, AE_READABLE);
 			ez_net_close_socket(c);
 			return;
@@ -123,18 +122,24 @@ void read_client_handler(ezEventLoop * eventLoop, int c, void *clientData, int m
 		}
 		if (nread) {
 			buf[nread] = '\0';
-			log_hexdump(LOG_INFO, buf, nread, "client %d > read %d bytes!", c, nread);
+			log_hexdump(LOG_INFO, buf, nread, "client %d > 读取 %d bytes!", c, nread);
 
-			r = ez_net_write(c, buf, (size_t) nread, &nwrite);
-			log_info("client %d > write %d bytes, result %d!", c, nwrite, r);
+            if(strcmp(buf, "aclose")==0) {
+                // 主动关闭
+                log_info("客户端 %d 发来命令，要求服务器主动关闭 connection !", c);
+    			ez_delete_file_event(eventLoop, c, AE_READABLE);
+                ez_net_close_socket(c);
+            } else {
+                r = ez_net_write(c, buf, (size_t) nread, &nwrite);
+                log_info("client %d > 回写 %d bytes, result %d!", c, nwrite, r);
+            }
 		}
 	}
 }
 
 void worker_push_client(int c)
 {
-	int wid = (last_worker + 1) % WORKER_SIZE;
-	last_worker = wid;
+	int wid = (c) % (WORKER_SIZE-1);
 
 	ez_net_set_non_block(c);
 	ez_net_tcp_enable_nodelay(c);

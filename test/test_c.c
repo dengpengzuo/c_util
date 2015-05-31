@@ -67,49 +67,65 @@ static void cust_signal_init(void) {
     }
 }
 
-char read_char_from_stdin(void) {
-    char buf[2];
+int read_char_from_stdin(char *buf, size_t bufsize) {
     ssize_t nread;
     int r;
 
-    while (1) {
-        r = ez_net_read(STDIN_FILENO, buf, 2, &nread);
+    r = ez_net_read(STDIN_FILENO, buf, bufsize, &nread);
 
-        if (r == ANET_OK && nread > 0)
-            return buf[0];
-        else if (r == ANET_ERR)
-            return 0;
-        else
-            continue;
-    }
+    if (r == ANET_OK && nread > 0) {
+        // read 中有个回车符换行符.
+        buf[nread--] = '\0';
+        while(nread >= 0 && (buf[nread] == '\n' || buf[nread] == '\r')) {
+            buf[nread] = '\0';
+            --nread;
+        }
+        return nread;
+    } else if (r == ANET_ERR)
+        return -1;
+    else
+        return 0;
 }
 
 int wait_quit(int c) {
-    char buf[44];
+    char con[16];
+    
     char red[16];
+    char buf[16];
     char s;
     int r;
     ssize_t nwrite, nread;
 
     while (1) {
-        s = read_char_from_stdin();
-        if (s == 0)
+        log_info("cmd:>");
+        s = read_char_from_stdin(con, 32);
+        if (s <= 0)
+            continue;
+        else if (strcmp(con, "aclose") == 0) {
+            r = ez_net_write(c, con, sizeof(con), &nwrite); 
+            log_info("client %d > 要求服务器主动关闭 (Send:%d bytes, Result:%d)", c, nwrite, r); 
+            continue;
+        }
+        else if (strcmp(con, "close") == 0) {
+            log_info("client %d > 客户端主动关闭 ", c);
+            ez_net_close_socket(c);
+            continue;
+        } 
+        else if (strcmp(con, "exit") == 0 ) {
             break;
-        else if (s == 'e' || s == 'q') {
-            break;
-        } else if (s == 'w' || s == 'W') {
+        } 
+        else if (strcmp(con, "send") == 0 ) {
             r = ez_net_write(c, buf, sizeof(buf), &nwrite);
-            log_info("client %d > write %d bytes, result: %d .", c, nwrite, r);
+            log_info("client %d > 发送数据 %d bytes, result: %d .", c, nwrite, r);
             // 1.对端已经关闭,写入[result=>NET_OK  , nwrite => (0-N)].
             // 2.对端已经关闭,写入[result=>ANET_ERR, nwrite =>  0   ].
         }
-        else if (s == 'r' || s == 'R') {
+        else if (strcmp(con, "recv") == 0) {
             r = ez_net_read(c, red, sizeof(red), &nread);
-            log_hexdump(LOG_INFO, red, nread, "client %d > read %d bytes, result: %d.", c, nread, r);
+            log_hexdump(LOG_INFO, red, nread, "client %d > 接收数据 %d bytes, result: %d.", c, nread, r);
             // 对端已经关闭下，读取一直是[result=>NET_OK, nread => 0]
         }
     }
-    ez_net_close_socket(c);
     return 1;
 }
 
@@ -131,7 +147,7 @@ int main(int argc, char **argv) {
     if (c > 0) {
         ez_net_socket_name(c, socket_name, 255, &socket_port);
         socket_name[255] = '\0';
-        log_info("client[id:%d %s:%d -> %s:%d] connect success.", c, socket_name, socket_port, svr_addr, svr_port);
+        log_info("client[id:%d %s:%d => %s:%d] connect success.", c, socket_name, socket_port, svr_addr, svr_port);
 
         ez_net_set_non_block(c);
         wait_quit(c);
