@@ -11,7 +11,7 @@ int ez_net_tcp_server(int port, char *bindaddr, int backlog);
 int ez_net_tcp6_server(int port, char *bindaddr, int backlog);
 
 /* 标准的accept模式 */
-#define ANET_ACCEPT_FILEFD_OVER      -4
+#define ANET_EMEN_FILE    -ENFILE
 int ez_net_tcp_accept2(int fd, char *ip, size_t ip_len, int *port);
 #define ez_net_tcp_accept(fd)                   (ez_net_tcp_accept2(fd, NULL, 0, NULL))
 

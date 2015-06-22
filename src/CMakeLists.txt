@@ -24,9 +24,11 @@ set_target_properties(ez_cutil_static PROPERTIES CLEAN_DIRECT_OUTPUT 1)
 set_target_properties(ez_cutil_static PROPERTIES LINKER_LANGUAGE "C" )
 set_target_properties(ez_cutil_static PROPERTIES ARCHIVE_OUTPUT_DIRECTORY "${LIBRARY_OUTPUT_PATH}")
 
+# -------------------------------
 # shared library
-ADD_LIBRARY(ez_cutil_shared SHARED ${SRC_LIST})
-set_target_properties(ez_cutil_shared PROPERTIES OUTPUT_NAME "ez_c")
-set_target_properties(ez_cutil_shared PROPERTIES CLEAN_DIRECT_OUTPUT 1)
-set_target_properties(ez_cutil_shared PROPERTIES LINKER_LANGUAGE "C" )
-set_target_properties(ez_cutil_shared PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${LIBRARY_OUTPUT_PATH}")
+# -------------------------------
+#ADD_LIBRARY(ez_cutil_shared SHARED ${SRC_LIST})
+#set_target_properties(ez_cutil_shared PROPERTIES OUTPUT_NAME "ez_c")
+#set_target_properties(ez_cutil_shared PROPERTIES CLEAN_DIRECT_OUTPUT 1)
+#set_target_properties(ez_cutil_shared PROPERTIES LINKER_LANGUAGE "C" )
+#set_target_properties(ez_cutil_shared PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${LIBRARY_OUTPUT_PATH}")

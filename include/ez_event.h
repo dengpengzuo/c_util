@@ -26,8 +26,8 @@ ezEventLoop *ez_create_event_loop(int setsize);
 void ez_delete_event_loop(ezEventLoop * eventLoop);
 
 /* socket event */
-int ez_create_file_event(ezEventLoop * eventLoop, int fd, int mask, ezFileProc proc, void *clientData);
-void ez_delete_file_event(ezEventLoop * eventLoop, int fd, int mask);
+int ez_create_file_event(ezEventLoop * eventLoop, int fd, EVENT_MASK mask, ezFileProc proc, void *clientData);
+void ez_delete_file_event(ezEventLoop * eventLoop, int fd, EVENT_MASK mask);
 
 /* time out event*/
 int64_t ez_create_time_event(ezEventLoop * eventLoop, int64_t period, ezTimeProc proc, void *clientData);

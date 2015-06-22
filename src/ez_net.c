@@ -107,13 +107,13 @@ static int ez_net_tcp_generic_accept(int s, struct sockaddr *sa, socklen_t * len
 	if (fd == -1) {
 		ezerrno = errno;
 		// linux 上 #define EWOULDBLOCK EAGAIN
-		if (ezerrno == EAGAIN /*|| ezerrno == EWOULDBLOCK */ ) {
+		if (ezerrno == EAGAIN || ezerrno == EWOULDBLOCK ) {
 			log_error("sever socket %d accept() not ready.", s);
 			return ANET_EAGAIN;
 		} else if(ezerrno == EMFILE || ezerrno == ENFILE) {
 			// file handle over, disabled accept.
 			log_warn("sever socket %d accept() error: %s \n You must disabled accept().", s, strerror(ezerrno));
-			return ANET_ACCEPT_FILEFD_OVER;
+			return ANET_EMEN_FILE;
 		} else if (ezerrno == ECONNABORTED) {
 			log_warn("sever socket %d accept() error: %s", s, strerror(ezerrno));
 			return ANET_ERR;
@@ -433,7 +433,7 @@ int ez_net_read(int fd, char *buf, size_t bufsize, ssize_t * nbytes)
 		*nbytes = 0;
 		ezerrno = errno;
 		// linux define EWOULDBLOCK EAGAIN.
-		if (ezerrno == EAGAIN || ezerrno == EINTR /*|| ezerrno == EWOULDBLOCK */)
+		if (ezerrno == EAGAIN || ezerrno == EINTR || ezerrno == EWOULDBLOCK )
 			return ANET_EAGAIN;	/* 非阻塞模式 */
 		else
 			return ANET_ERR;
@@ -455,7 +455,7 @@ int ez_net_write(int fd, char *buf, size_t bufsize, ssize_t * nbytes)
 		*nbytes = 0;
 		ezerrno = errno;
 		// linux define EWOULDBLOCK EAGAIN.
-		if (ezerrno == EAGAIN || ezerrno == EINTR /*|| ezerrno == EWOULDBLOCK */)
+		if (ezerrno == EAGAIN || ezerrno == EINTR || ezerrno == EWOULDBLOCK )
 			return ANET_EAGAIN;	/* 非阻塞模式 */
 		else
 			return ANET_ERR;

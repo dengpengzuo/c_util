@@ -120,19 +120,20 @@ void read_client_handler(ezEventLoop * eventLoop, int c, void *clientData, int m
 		} else if (r == ANET_ERR) {
 			log_info("client %d > read error:[%d,%s]!", c, errno, strerror(errno));
 		}
-		if (nread) {
+		if (nread > 0) {
 			buf[nread] = '\0';
 			log_hexdump(LOG_INFO, buf, nread, "client %d > 读取 %d bytes!", c, nread);
 
-            if(strcmp(buf, "aclose")==0) {
-                // 主动关闭
-                log_info("客户端 %d 发来命令，要求服务器主动关闭 connection !", c);
-    			ez_delete_file_event(eventLoop, c, AE_READABLE);
-                ez_net_close_socket(c);
-            } else {
-                r = ez_net_write(c, buf, (size_t) nread, &nwrite);
-                log_info("client %d > 回写 %d bytes, result %d!", c, nwrite, r);
-            }
+			if (strcmp(buf, "aclose") == 0) {
+				// 主动关闭
+				log_info("客户端 %d 发来命令，要求服务器主动关闭 connection !", c);
+				ez_delete_file_event(eventLoop, c, AE_READABLE);
+				ez_net_close_socket(c);
+			} else {
+				// 将内容回写到客户端.
+				r = ez_net_write(c, buf, (size_t) nread, &nwrite);
+				log_info("client %d > 回写 %d bytes, result %d!", c, nwrite, r);
+			}
 		}
 	}
 }

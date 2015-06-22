@@ -16,9 +16,9 @@
 /* File event structure */
 typedef struct ezFileEvent_t {
 	int fd;
-	int mask;
-	/* one of AE_(READABLE|WRITABLE) */
+	int mask;				/* one of AE_(READABLE|WRITABLE) */
 	ezFileProc rfileProc;
+	ezFileProc wfileProc;
 	void *clientData;
 
 	ezRBTreeNode rb_node;	/* rbtree node */
@@ -188,8 +188,10 @@ void ez_stop_event_loop(ezEventLoop * eventLoop)
 	ezApiStop(eventLoop);
 }
 
-int ez_create_file_event(ezEventLoop * eventLoop, int fd, int mask, ezFileProc proc, void *clientData)
+int ez_create_file_event(ezEventLoop * eventLoop, int fd, EVENT_MASK mask, ezFileProc proc, void *clientData)
 {
+	if (mask == AE_NONE) return AE_ERR;
+
 	ezFileEvent *fe = ez_fund_file_event(eventLoop, fd);
 	int oldmask;
 	int is_new = 0;
@@ -220,7 +222,7 @@ int ez_create_file_event(ezEventLoop * eventLoop, int fd, int mask, ezFileProc p
 		oldmask = fe->mask;
 	}
 
-	if (ezApiAddEvent(eventLoop, fd, mask, oldmask) == -1) {
+	if (ezApiAddEvent(eventLoop, fd, (int)mask, oldmask) == -1) {
 		if(is_new) ez_free(fe);
 		return AE_ERR;
 	}
@@ -232,11 +234,12 @@ int ez_create_file_event(ezEventLoop * eventLoop, int fd, int mask, ezFileProc p
         // update file event's properties [mask|proc|clientData].
         fe->mask |= mask;
 
-        if (proc != NULL && fe->rfileProc != proc) {
-            log_warn("file fd:%d add new mask event's proc not same!", fe->fd);
-            fe->rfileProc = proc;
-        }
-        if (clientData != NULL && fe->clientData != clientData) {
+		if (mask == AE_READABLE)
+			fe->rfileProc = proc;
+		else if (mask == AE_WRITABLE)
+			fe->wfileProc = proc;
+
+		if (clientData != NULL && fe->clientData != clientData) {
             log_warn("file fd:%d add new mask  event's proc args not same!", fe->fd);
             fe->clientData = clientData;
         }
@@ -245,7 +248,7 @@ int ez_create_file_event(ezEventLoop * eventLoop, int fd, int mask, ezFileProc p
     return AE_OK;
 }
 
-void ez_delete_file_event(ezEventLoop * eventLoop, int fd, int mask)
+void ez_delete_file_event(ezEventLoop * eventLoop, int fd, EVENT_MASK mask)
 {
 	if (fd >= eventLoop->setsize)
 		return;
@@ -253,9 +256,9 @@ void ez_delete_file_event(ezEventLoop * eventLoop, int fd, int mask)
 	if (fe == NULL || fe->mask == AE_NONE)
 		return;
 
-	ezApiDelEvent(eventLoop, fd, mask, fe->mask);
+	ezApiDelEvent(eventLoop, fd, (int) mask, fe->mask);
 	// 取反留下其他的mask
-	fe->mask = fe->mask & (~mask);
+	fe->mask = fe->mask & (~(int)mask);
 	if (fe->mask == AE_NONE) {
 		rbtree_delete(&eventLoop->rbtree_events, &fe->rb_node);
 		--(eventLoop->count);
@@ -446,11 +449,12 @@ static int ez_process_events(ezEventLoop * eventLoop, int flags)
 			int fired_mask = eventLoop->fired[j].mask;
 			ezFileEvent *fe = ez_fund_file_event(eventLoop, fd);
 
-			if (((fired_mask & AE_READABLE) || (fired_mask & AE_WRITABLE))
-			    && fe != NULL && fe->mask != AE_NONE) {
-				// 只击发一次，由函数中实行中区分出是<AE_READABLE|AE_WRITABLE>操作.
-				fe->rfileProc(eventLoop, fd, fe->clientData, fired_mask);
-			}
+            if ((fired_mask & AE_READABLE) == AE_READABLE && fe != NULL && fe->mask != AE_NONE) {
+                fe->rfileProc(eventLoop, fd, fe->clientData, AE_READABLE);
+            }
+            if ((fired_mask & AE_WRITABLE) == AE_WRITABLE && fe != NULL && fe->mask != AE_NONE) {
+                fe->wfileProc(eventLoop, fd, fe->clientData, AE_WRITABLE);
+            }
 			processed++;
 		}
 	}

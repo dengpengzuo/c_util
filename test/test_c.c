@@ -80,7 +80,7 @@ int read_char_from_stdin(char *buf, size_t bufsize) {
             buf[nread] = '\0';
             --nread;
         }
-        return nread;
+        return (int)nread;
     } else if (r == ANET_ERR)
         return -1;
     else
@@ -92,14 +92,13 @@ int wait_quit(int c) {
     
     char red[16];
     char buf[16];
-    char s;
     int r;
     ssize_t nwrite, nread;
 
     while (1) {
         log_info("cmd:>");
-        s = read_char_from_stdin(con, 32);
-        if (s <= 0)
+        r = read_char_from_stdin(con, 32);
+        if (r <= 0)
             continue;
         else if (strcmp(con, "aclose") == 0) {
             r = ez_net_write(c, con, sizeof(con), &nwrite); 
