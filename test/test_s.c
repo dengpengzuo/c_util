@@ -18,11 +18,11 @@ typedef struct ezWorker_t {
 
 struct ez_signal {
     int  signo;
-    char *signame;
-    int  flags;
+	int  flags;
+	char *signame;
     void (*handler)(int signo);
     void (*cust_handler)(struct ez_signal *sig);
-};
+}; // 字节对齐, sizeof(struct ez_signal)=32 bytes.
 
 static ezWorker boss ;
 #define WORKER_SIZE			4
@@ -33,12 +33,12 @@ static void dispatch_signal_handler(int signo);
 static void cust_signal_handler(struct ez_signal *sig);
 
 static struct ez_signal cust_signals[] = {
-    { SIGHUP,  "SIGHUP",  0, SIG_IGN, NULL },
-    { SIGPIPE, "SIGPIPE", 0, SIG_IGN, NULL },
-    { SIGINT,  "SIGINT" , 0, SIG_DFL, cust_signal_handler },
-    { SIGQUIT, "SIGQUIT", 0, SIG_DFL, cust_signal_handler },
-	{ SIGTERM, "SIGTERM", 0, SIG_DFL, cust_signal_handler },
-    { 0,       "NULL",    0, NULL, NULL }
+		{SIGHUP,  0, "SIGHUP",  SIG_IGN, NULL},
+		{SIGPIPE, 0, "SIGPIPE", SIG_IGN, NULL},
+		{SIGINT,  0, "SIGINT",  SIG_DFL, cust_signal_handler},
+		{SIGQUIT, 0, "SIGQUIT", SIG_DFL, cust_signal_handler},
+		{SIGTERM, 0, "SIGTERM", SIG_DFL, cust_signal_handler},
+		{0,       0, "NULL",    NULL,    NULL}
 };
 
 static void cust_signal_handler(struct ez_signal *sig)
@@ -66,11 +66,11 @@ static void cust_signal_init(void)
 {
     struct ez_signal *sig;
 	int status;
+	struct sigaction sa;
 
     for (sig = cust_signals; sig->signo != 0; sig++) {
-
-		struct sigaction sa;
         memset(&sa, 0, sizeof(sa));
+
         if(sig->handler == SIG_DFL)
             sa.sa_handler = dispatch_signal_handler;
         else
