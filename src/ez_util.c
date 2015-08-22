@@ -226,11 +226,9 @@ bool ez_str2oct(const char *str, int32_t * out)
 	return false;
 }
 
-int _vscnprintf(char *buf, size_t size, const char *fmt, va_list args)
+int ez_vsnprintf(char *buf, size_t size, const char *fmt, va_list args)
 {
-	size_t i = 0;
-
-	i = vsnprintf(buf, size, fmt, args);
+	int i = vsnprintf(buf, size, fmt, args);
 
 	/*
 	 * The return value is the number of characters which would be written
@@ -250,16 +248,16 @@ int _vscnprintf(char *buf, size_t size, const char *fmt, va_list args)
 		return i;
 	}
 
-	return size - 1;
+	return (int)(size - 1);
 }
 
-int _scnprintf(char *buf, size_t size, const char *fmt, ...)
+int ez_snprintf(char *buf, size_t size, const char *fmt, ...)
 {
-	va_list args;
 	int i;
+	va_list args;
 
 	va_start(args, fmt);
-	i = _vscnprintf(buf, size, fmt, args);
+	i = ez_vsnprintf(buf, size, fmt, args);
 	va_end(args);
 
 	return i;

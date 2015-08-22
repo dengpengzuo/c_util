@@ -267,6 +267,7 @@ void ez_delete_file_event(ezEventLoop * eventLoop, int fd, EVENT_MASK mask)
 }
 
 static void insert_time_event_list(list_head *first, list_head *end, ezTimeEvent *te) {
+	// 将 when_ms 大的放后, when_ms 小的放前
 	list_head *ti ;
 	for (ti = first; ti != end;) {
 		ezTimeEvent *i = cast_to_time_event(ti);

@@ -159,14 +159,14 @@ void _log(LOG_LEVEL log_level, const char *file, int line, int panic, const char
 	ez_localtime_r(&cur_sec, &tm);
 
 	len +=
-	    ez_scnprintf(buf + len, size - len,
-			 "%04d-%02d-%02d %02d:%02d:%02d.%03d [%6s] %s:%d ",
-			 tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
-			 tm.tm_hour, tm.tm_min, tm.tm_sec, (int)(tv.tv_usec / 1000),
-			 get_log_level_name(log_level), file, line);
+			ez_snprintf(buf + len, size - len,
+						"%04d-%02d-%02d %02d:%02d:%02d.%03d [%6s] %s:%d ",
+						tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+						tm.tm_hour, tm.tm_min, tm.tm_sec, (int) (tv.tv_usec / 1000),
+						get_log_level_name(log_level), file, line);
 
 	va_start(args, fmt);
-	len += ez_vscnprintf(buf + len, size - len, fmt, args);
+	len += ez_vsnprintf(buf + len, size - len, fmt, args);
 	va_end(args);
 
 	buf[len++] = '\n';
@@ -192,10 +192,10 @@ void _log_stderr(const char *file, int line, const char *fmt, ...)
 	len = 0;		/* length of output buffer */
 	size = 4 * LOG_MAX_LEN;	/* size of output buffer */
 
-	len += ez_scnprintf(buf + len, size - len, "%s:%d ", file, line);
+	len += ez_snprintf(buf + len, size - len, "%s:%d ", file, line);
 
 	va_start(args, fmt);
-	len += ez_vscnprintf(buf + len, size - len, fmt, args);
+	len += ez_vsnprintf(buf + len, size - len, fmt, args);
 	va_end(args);
 
 	buf[len++] = '\n';
@@ -230,7 +230,7 @@ void _log_hexdump(char *data, int datalen)
 		unsigned char c;
 		int savelen;
 
-		len += ez_scnprintf(buf + len, size - len, "%08x  ", off);
+		len += ez_snprintf(buf + len, size - len, "%08x  ", off);
 
 		save = data;
 		savelen = datalen;
@@ -238,23 +238,23 @@ void _log_hexdump(char *data, int datalen)
 		for (i = 0; datalen != 0 && i < 16; data++, datalen--, i++) {
 			c = (unsigned char)(*data);
 			str = (i == 7) ? "  " : " ";
-			len += ez_scnprintf(buf + len, size - len, "%02x%s", c, str);
+			len += ez_snprintf(buf + len, size - len, "%02x%s", c, str);
 		}
 		for (; i < 16; i++) {
 			str = (i == 7) ? "  " : " ";
-			len += ez_scnprintf(buf + len, size - len, "  %s", str);
+			len += ez_snprintf(buf + len, size - len, "  %s", str);
 		}
 
 		data = save;
 		datalen = savelen;
 
-		len += ez_scnprintf(buf + len, size - len, "  |");
+		len += ez_snprintf(buf + len, size - len, "  |");
 
 		for (i = 0; datalen != 0 && i < 16; data++, datalen--, i++) {
 			c = (unsigned char)(isprint(*data) ? *data : '.');
-			len += ez_scnprintf(buf + len, size - len, "%c", c);
+			len += ez_snprintf(buf + len, size - len, "%c", c);
 		}
-		len += ez_scnprintf(buf + len, size - len, "|\n");
+		len += ez_snprintf(buf + len, size - len, "|\n");
 
 		off += 16;
 	}

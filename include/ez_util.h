@@ -42,15 +42,8 @@ bool ez_strtol(const char *str, int32_t * out);
 bool ez_str2oct(const char *str, int32_t * out);
 
 /** 格式化输出函数 snprintf, vsnprintf */
-#define ez_snprintf(_s, _n, ...)         snprintf((char *)_s, _n, __VA_ARGS__)
-#define ez_vsnprintf(_s, _n, _f, _a)     vsnprintf((char*) _s, _n, _f, _a)
-
-/** 格式化输出函数 _scnprintf, _vscnprintf */
-#define ez_scnprintf(_s, _n, ...)       _scnprintf((char *)_s, _n, __VA_ARGS__)
-#define ez_vscnprintf(_s, _n, _f, _a)   _vscnprintf((char*) _s, _n, _f, _a)
-
-int _scnprintf(char *buf, size_t size, const char *fmt, ...);
-int _vscnprintf(char *buf, size_t size, const char *fmt, va_list args);
+int ez_snprintf(char *buf, size_t size, const char *fmt, ...);
+int ez_vsnprintf(char *buf, size_t size, const char *fmt, va_list args);
 
 int64_t ez_get_cur_milliseconds();
 
