@@ -142,7 +142,7 @@ void _log(LOG_LEVEL log_level, const char *file, int line, int panic, const char
 	char buf[LOG_MAX_LEN];
 	struct timeval tv;
 	time_t cur_sec;
-	struct tm tm;
+	struct tm lt;
 
 	va_list args;
 
@@ -151,18 +151,20 @@ void _log(LOG_LEVEL log_level, const char *file, int line, int panic, const char
 	}
 
 	save_error_no = errno;
-	len = 0;		/* length of output buffer */
+	len = 0;		    /* length of output buffer */
 	size = LOG_MAX_LEN;	/* size of output buffer */
 
 	gettimeofday(&tv, NULL);
 	cur_sec = tv.tv_sec;
-	ez_localtime_r(&cur_sec, &tm);
+	ez_localtime_r(&cur_sec, &lt);
 
-	len +=
-			ez_snprintf(buf + len, size - len,
-						"%04d-%02d-%02d %02d:%02d:%02d.%03d [%6s] %s:%d ",
-						tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
-						tm.tm_hour, tm.tm_min, tm.tm_sec, (int) (tv.tv_usec / 1000),
+    /* fmt: yyyy-MM-dd HH:mm:ss,SSS
+     * len += strftime(buf + len, size - len, "%Y-%m-%d %H:%M:%S", &lt);
+     * */
+	len +=  ez_snprintf(buf + len, size - len,
+						"%04d-%02d-%02d %02d:%02d:%02d,%03d [%6s] %s:%d ",
+						lt.tm_year + 1900, lt.tm_mon + 1, lt.tm_mday,
+						lt.tm_hour, lt.tm_min, lt.tm_sec, (int) (tv.tv_usec / 1000),
 						get_log_level_name(log_level), file, line);
 
 	va_start(args, fmt);

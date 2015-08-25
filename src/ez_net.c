@@ -14,6 +14,47 @@
 #include "ez_util.h"
 #include "ez_log.h"
 
+static const char *SFNA[] = {"", "AF_UNIX", "AF_INET", "AF_INET6"};
+static const char *STNA[] = {"", "SOCK_STREAM", "SOCK_DGRAM", "SOCK_RAW"};
+static const char *SPNA[] = {"", "IPPROTO_IP", "IPPROTO_TCP", "IPPROTO_UDP", "IPPROTO_IPV6", "IPPROTO_RAW"};
+
+const char *socket_family_name(int sf) {
+    if (AF_UNIX == sf)
+        return SFNA[1];
+    else if (AF_INET == sf)
+        return SFNA[2];
+    else if (AF_INET6 == sf)
+        return SFNA[3];
+    else
+        return SFNA[0];
+}
+
+const char *socket_socktype_name(int st) {
+    if (SOCK_STREAM == st)
+        return STNA[1];
+    else if (SOCK_DGRAM == st)
+        return STNA[2];
+    else if (SOCK_RAW == st)
+        return STNA[3];
+    else
+        return STNA[0];
+}
+
+const char *socket_protocol_name(int sp) {
+    if (IPPROTO_IP == sp)
+        return SPNA[1];
+    else if (IPPROTO_TCP == sp)
+        return SPNA[2];
+    else if (IPPROTO_UDP == sp)
+        return SPNA[3];
+    else if (IPPROTO_IPV6 == sp)
+        return SPNA[4];
+    else if (IPPROTO_RAW == sp)
+        return SPNA[5];
+    else
+        return SPNA[0];
+}
+
 /* create server */
 static int ez_net_bind(int s, struct sockaddr *sa, socklen_t len)
 {
@@ -56,7 +97,11 @@ static int _ez_net_tcp_server(int port, char *bindaddr, int af, int backlog)
 	for (p = servinfo; p != NULL; p = p->ai_next) {
 		if ((s = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
 			continue;
-
+        log_info("call sockt (%s,%s,%s) = %d",
+                 socket_family_name(p->ai_family),
+                 socket_socktype_name(p->ai_socktype),
+                 socket_protocol_name(p->ai_protocol),
+                 s);
 		if (af == AF_INET6 && ez_net_set_ipv6_only(s) == ANET_ERR)
 			goto error;
 		if (ez_net_set_reuse_addr(s) == ANET_ERR)
@@ -188,8 +233,16 @@ static int ez_net_tcp_connect_ex(const char *addr, int port, int flags)
 		/* Try to create the socket and to connect it.
 		 * If we fail in the socket() call, or on connect(), we retry with
 		 * the next entry in servinfo. */
+
 		if ((s = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
 			continue;
+
+		log_info("call sockt (%s,%s,%s) = %d",
+                 socket_family_name(p->ai_family),
+                 socket_socktype_name(p->ai_socktype),
+                 socket_protocol_name(p->ai_protocol),
+                 s);
+
 		if (ez_net_set_reuse_addr(s) == ANET_ERR)
 			goto error;
 		if ((flags & ANET_CONNECT_NONBLOCK) && ez_net_set_non_block(s) != ANET_OK)
@@ -200,7 +253,7 @@ static int ez_net_tcp_connect_ex(const char *addr, int port, int flags)
 			if (errno == EINPROGRESS && (flags & ANET_CONNECT_NONBLOCK))
 				goto end;
 			else {
-				log_stderr("connect to host[%s:%d] failed, cause:[%s]!", addr, port, strerror(errno));
+				log_stderr("connect to %s:%d failed, cause:[%s]!", addr, port, strerror(errno));
 			}
 			// close
 			if (s != ANET_ERR) {

@@ -6,6 +6,9 @@
 #define ANET_ERR          -1
 #define ANET_EAGAIN       (-EAGAIN)
 
+const char * socket_family_name(int sf);
+const char * socket_socktype_name(int st);
+const char * socket_protocol_name(int sp);
 /* create server */
 int ez_net_tcp_server(int port, char *bindaddr, int backlog);
 int ez_net_tcp6_server(int port, char *bindaddr, int backlog);
