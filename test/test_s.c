@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <pthread.h>
 
+#include <ez_atomic.h>
 #include <ez_util.h>
 #include <ez_net.h>
 #include <ez_log.h>
@@ -27,6 +28,7 @@ struct ez_signal {
 static ezWorker boss ;
 #define WORKER_SIZE			4
 static ezWorker workers[WORKER_SIZE];
+static uint32_t worker_index = 0;
 
 static void dispatch_signal_handler(int signo);
 
@@ -140,7 +142,8 @@ void read_client_handler(ezEventLoop * eventLoop, int c, void *clientData, int m
 
 void worker_push_client(int c)
 {
-	int wid = (c) % (WORKER_SIZE-1);
+    uint32_t wid = ATOM_FINC(&worker_index);
+    wid = wid % WORKER_SIZE;
 
 	ez_net_set_non_block(c);
 	ez_net_tcp_enable_nodelay(c);
@@ -243,7 +246,7 @@ int main(int argc, char **argv)
 	ez_create_file_event(boss.w_event, s, AE_READABLE, accept_handler, NULL);
 	ez_create_file_event(boss.w_event, s6, AE_READABLE, accept_handler, NULL);
 	// test time out.
-	// ez_create_time_event(boss.w_event, 5000, time_out_handler, NULL);
+	ez_create_time_event(boss.w_event, 5000, time_out_handler, NULL);
 
 	run_boss();
 	stop_free_boss();
