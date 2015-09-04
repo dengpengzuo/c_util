@@ -8,7 +8,7 @@ void init_list_head(list_head * list)
 	list->prev = list;
 }
 
-int list_empty(list_head * head)
+int list_is_empty(list_head *head)
 {
 	return head->next == head;
 }

@@ -294,7 +294,7 @@ int64_t ez_create_time_event(ezEventLoop * eventLoop, int64_t period, ezTimeProc
 	te->timeProc = proc;
 	te->clientData = clientData;
 	te->period = period;
-	te->when_ms = ez_get_cur_milliseconds() + te->period;
+	te->when_ms = ez_cur_milliseconds() + te->period;
 	log_debug("create time event [id:%li, when_ms:%li].", id, te->when_ms);
 
 	insert_time_event_list(eventLoop->time_events.next, &eventLoop->time_events, te);
@@ -360,7 +360,7 @@ static int process_time_events(ezEventLoop * eventLoop)
 		list_head *tmp = ti;
 		ti = ti->next;
 		te = cast_to_time_event(tmp);
-		now_ms = ez_get_cur_milliseconds();
+		now_ms = ez_cur_milliseconds();
 
 		if (all_fired || now_ms >= te->when_ms) {
 			list_del(tmp);
@@ -432,13 +432,13 @@ static int ez_process_events(ezEventLoop * eventLoop, int flags)
 		if (flags & AE_TIME_EVENTS) {
 			shortest = NULL;
 			// 第一个timeEvent就是最少的wait time.
-			if (!list_empty(&eventLoop->time_events)) {
+			if (!list_is_empty(&eventLoop->time_events)) {
 				shortest = cast_to_time_event(eventLoop->time_events.next);
 				log_debug("find min wait time event [id:%li]", shortest->id);
 			}
 		}
 		if (shortest != NULL) {
-			tvp = (int) (shortest->when_ms - ez_get_cur_milliseconds());
+			tvp = (int) (shortest->when_ms - ez_cur_milliseconds());
 			if (tvp < 0) tvp = 100;
 		} else {
 			tvp = -1;	// wait for block

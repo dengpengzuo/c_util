@@ -45,7 +45,7 @@ bool ez_str2oct(const char *str, int32_t * out);
 int ez_snprintf(char *buf, size_t size, const char *fmt, ...);
 int ez_vsnprintf(char *buf, size_t size, const char *fmt, va_list args);
 
-int64_t ez_get_cur_milliseconds();
+int64_t ez_cur_milliseconds();
 
 void ez_localtime_r(const time_t * _time_t, struct tm *_tm);
 #endif

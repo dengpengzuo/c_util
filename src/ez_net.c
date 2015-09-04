@@ -14,9 +14,9 @@
 #include "ez_util.h"
 #include "ez_log.h"
 
-static const char *SFNA[] = {"", "AF_UNIX", "AF_INET", "AF_INET6"};
-static const char *STNA[] = {"", "SOCK_STREAM", "SOCK_DGRAM", "SOCK_RAW"};
-static const char *SPNA[] = {"", "IPPROTO_IP", "IPPROTO_TCP", "IPPROTO_UDP", "IPPROTO_IPV6", "IPPROTO_RAW"};
+static const char * const SFNA[] = {"", "AF_UNIX", "AF_INET", "AF_INET6"};
+static const char * const STNA[] = {"", "SOCK_STREAM", "SOCK_DGRAM", "SOCK_RAW"};
+static const char * const SPNA[] = {"", "IPPROTO_IP", "IPPROTO_TCP", "IPPROTO_UDP", "IPPROTO_IPV6", "IPPROTO_RAW"};
 
 const char *socket_family_name(int sf) {
     if (AF_UNIX == sf)

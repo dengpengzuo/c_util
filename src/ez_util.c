@@ -10,7 +10,7 @@
 #include "ez_log.h"
 #include "ez_util.h"
 
-int64_t ez_get_cur_milliseconds()
+int64_t ez_cur_milliseconds()
 {
 	struct timeval tv;
 	int64_t milliseconds = 0;

@@ -11,7 +11,7 @@ void list_add(list_head *newNode, list_head *head);
 
 void list_del(list_head *entry);
 
-int list_empty(list_head *head);
+int list_is_empty(list_head *head);
 
 void list_foreach(list_head *head, void (*func)(list_head *entry));
 
