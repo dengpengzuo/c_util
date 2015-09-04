@@ -1,4 +1,4 @@
-#include <ez_rwlock.h>
+#include "ez_rwlock.h"
 
 inline void rwlock_init(rwlock *lock) {
     lock->write = 0;

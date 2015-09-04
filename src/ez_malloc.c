@@ -5,7 +5,7 @@
 #ifdef USE_JEMALLOC
 
 #include <jemalloc/jemalloc.h>
-#define __zmalloc_size(p)     je_malloc_usable_size(p)
+#define __malloc_size(p)      je_malloc_usable_size(p)
 #define __malloc(size)        je_malloc(size)
 #define __calloc(count,size)  je_calloc(count,size)
 #define __realloc(ptr,size)   je_realloc(ptr,size)
@@ -14,7 +14,7 @@
 #else
 
 #include <malloc.h>
-#define __zmalloc_size(p)     malloc_usable_size(p)
+#define __malloc_size(p)      malloc_usable_size(p)
 #define __malloc(size)        malloc(size)
 #define __calloc(count,size)  calloc(count,size)
 #define __realloc(ptr,size)   realloc(ptr,size)
@@ -22,20 +22,18 @@
 
 #endif
 
+#include "ez_atomic.h"
 #include "ez_malloc.h"
 #include "ez_log.h"
 
-static size_t used_memory = 0;
+static uint64_t used_memory = 0;
 static int zmalloc_thread_safe = 1;	// 用于多线程环境
-
-#define update_zmalloc_stat_add(__n) __sync_add_and_fetch(&used_memory, (__n))
-#define update_zmalloc_stat_sub(__n) __sync_sub_and_fetch(&used_memory, (__n))
 
 #define update_zmalloc_stat_alloc(__n) do { \
     size_t _n = (__n); \
     if (_n&(sizeof(long)-1)) _n += sizeof(long)-(_n&(sizeof(long)-1)); \
     if (zmalloc_thread_safe) { \
-        update_zmalloc_stat_add(_n); \
+        ATOM_INC_N(&used_memory, _n); \
     } else { \
         used_memory += _n; \
     } \
@@ -45,7 +43,7 @@ static int zmalloc_thread_safe = 1;	// 用于多线程环境
     size_t _n = (__n); \
     if (_n&(sizeof(long)-1)) _n += sizeof(long)-(_n&(sizeof(long)-1)); \
     if (zmalloc_thread_safe) { \
-        update_zmalloc_stat_sub(_n); \
+        ATOM_DEC_N(&used_memory, _n); \
     } else { \
         used_memory -= _n; \
     } \
@@ -66,7 +64,8 @@ void *zmalloc(size_t size)
 
 	if (!ptr)
 		zmalloc_oom_handler(size);
-	update_zmalloc_stat_alloc(__zmalloc_size(ptr));
+
+	update_zmalloc_stat_alloc(__malloc_size(ptr));
 	// 分配后将其清零.
 	memset(ptr, 0, size);
 	return ptr;
@@ -79,7 +78,7 @@ void *zcalloc(size_t count, size_t size)
 
 	if (!ptr)
 		zmalloc_oom_handler(nSize);
-	update_zmalloc_stat_alloc(__zmalloc_size(ptr));
+	update_zmalloc_stat_alloc(__malloc_size(ptr));
 
 	return ptr;
 }
@@ -91,13 +90,13 @@ void *zrealloc(void *ptr, size_t size)
 
 	if (ptr == NULL)
 		return zmalloc(size);
-	oldsize = __zmalloc_size(ptr);
+	oldsize = __malloc_size(ptr);
 	newptr = __realloc(ptr, size);
 	if (!newptr)
 		zmalloc_oom_handler(size);
 
 	update_zmalloc_stat_free(oldsize);
-	update_zmalloc_stat_alloc(__zmalloc_size(newptr));
+	update_zmalloc_stat_alloc(__malloc_size(newptr));
 	return newptr;
 }
 
@@ -105,7 +104,7 @@ void zfree(void *ptr)
 {
 	if (ptr == NULL)
 		return;
-	update_zmalloc_stat_free(__zmalloc_size(ptr));
+	update_zmalloc_stat_free(__malloc_size(ptr));
 	__free(ptr);
 }
 
@@ -114,7 +113,7 @@ size_t zmalloc_used_memory(void)
 	size_t um;
 
 	if (zmalloc_thread_safe) {
-		um = __sync_add_and_fetch(&used_memory, 0);
+		um = ATOM_INC_N(&used_memory, 0);
 	} else {
 		um = used_memory;
 	}
@@ -167,7 +166,7 @@ void *_ez_realloc(void *ptr, size_t size, const char *name, int line)
 
 	p = zrealloc(ptr, size);
 	if (p == NULL) {
-		log_error_x(name, line, "realloc(%zu) failed ", size);
+        log_error_x(name, line, "realloc(addr: %p, size:%zu) failed ", ptr, size);
 	} else {
 		log_debug_x(name, line, "realloc(addr: %p, size: %zu bytes)", p, size);
 	}
