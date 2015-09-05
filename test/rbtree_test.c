@@ -4,7 +4,7 @@
 
 #define NODES 100
 
-#define cast_to_type_ptr(ptr, type)     ez_container_of(ptr, type, rb_node)
+#define cast_to_type_ptr(ptr, type)     EZ_CONTAINER_OF(ptr, type, rb_node)
 #define rb_entry(type_ptr)          (&((type_ptr)->rb_node))
 #define RB_TREE_NODE                ezRBTreeNode rb_node
 

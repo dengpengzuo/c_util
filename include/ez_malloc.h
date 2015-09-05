@@ -9,9 +9,13 @@
 #define EZMEM_ALIGNMENT       sizeof(uintptr_t)
 #endif
 
-#define ezmem_align(d, a)     (((d) + (a - 1)) & ~(a - 1))
+/*
+ * Make data 'd' or pointer 'p', n-byte aligned, where n is a power of 2
+ * of 2.
+ */
+#define EZMEM_ALIGN(d, a)     (((d) + (a - 1)) & ~(a - 1))
 
-#define ezmem_align_ptr(p, a)  \
+#define EZMEM_ALIGN_PTR(p, a)  \
     (uint8_t *) (((uintptr_t) (p) + ((uintptr_t) a - 1)) & ~((uintptr_t) a - 1))
 
 /* =============================================================================

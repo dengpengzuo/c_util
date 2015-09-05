@@ -26,7 +26,7 @@ typedef struct ezFileEvent_t {
 
 static inline ezFileEvent *cast_to_file_event(ezRBTreeNode * node)
 {
-	return ez_container_of(node, ezFileEvent, rb_node);
+	return EZ_CONTAINER_OF(node, ezFileEvent, rb_node);
 }
 
 /* Time event structure */
@@ -42,7 +42,7 @@ typedef struct ezTimeEvent_t {
 
 static inline ezTimeEvent *cast_to_time_event(list_head * node)
 {
-	return ez_container_of(node, ezTimeEvent, listNode);
+	return EZ_CONTAINER_OF(node, ezTimeEvent, listNode);
 }
 
 /* A fired event */
