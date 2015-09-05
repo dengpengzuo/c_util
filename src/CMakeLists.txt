@@ -6,8 +6,8 @@ include_directories(
 
 set(SRC_LIST
         ez_daemon.c ez_event.c ez_net.c
-        ez_hash.c ez_log.c ez_malloc.c ez_min_heap.c ez_rbtree.c ez_util.c
-        ez_list.c ez_rwlock.c
+        ez_hash.c ez_log.c ez_malloc.c ez_util.c
+        ez_rbtree.c ez_list.c ez_rwlock.c
 )
 
 # static library
