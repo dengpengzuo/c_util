@@ -16,7 +16,7 @@
 #define EZMEM_ALIGN(d, a)     (((d) + (a - 1)) & ~(a - 1))
 
 #define EZMEM_ALIGN_PTR(p, a)  \
-    (uint8_t *) (((uintptr_t) (p) + ((uintptr_t) a - 1)) & ~((uintptr_t) a - 1))
+    (void *) (((uintptr_t) (p) + ((uintptr_t) a - 1)) & ~((uintptr_t) a - 1))
 
 /* =============================================================================
  * Memory allocation and free

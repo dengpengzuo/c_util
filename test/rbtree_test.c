@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <ez_rbtree.h>
+#include <ez_malloc.h>
 #include <ez_util.h>
 
 #define NODES 100
@@ -16,17 +17,15 @@ typedef struct student {
 static ezRBTree rbtree;
 static ezRBTreeNode sentinel;
 
-static student nodes[NODES];
+static student *nodes[NODES];
 
-static int student_compare_proc(ezRBTreeNode *new_node, ezRBTreeNode *exists_node)
-{
+static int student_compare_proc(ezRBTreeNode *new_node, ezRBTreeNode *exists_node) {
     student *n = cast_to_type_ptr(new_node, student);
     student *o = cast_to_type_ptr(exists_node, student);
     return n->age == o->age ? 0 : (n->age > o->age ? 1 : -1);
 }
 
-static int student_find_proc(ezRBTreeNode *node, void *find_args)
-{
+static int student_find_proc(ezRBTreeNode *node, void *find_args) {
     int age = *((int *) find_args);
     student *o = cast_to_type_ptr(node, student);
     return o->age == age ? 0 : (o->age > age ? 1 : -1);
@@ -37,11 +36,12 @@ int main(int argc, char **argv) {
     rbtree_init(&rbtree, &sentinel, student_compare_proc);
 
     for (int i = 0; i < NODES; ++i) {
-        nodes[i].age = i;
+        nodes[i] = (student *) ez_malloc(sizeof(student));
+        nodes[i]->age = i;
     }
 
     for (int i = 0; i < NODES; ++i) {
-        rbtree_insert(&rbtree, rb_entry(&nodes[i]));
+        rbtree_insert(&rbtree, rb_entry(nodes[i]));
     }
     int find_age = 100;
     node = rbtree_find_node(&rbtree, student_find_proc, &find_age);
@@ -59,5 +59,14 @@ int main(int argc, char **argv) {
         rbtree_delete(&rbtree, node);
         node = rbtree_min_node(&rbtree);
     }
+    fprintf(stdout, "------------------------------> test malloc <----------------------------------------\n");
+    void *align_ptr = NULL;
+    for (int i = 0; i < NODES; ++i) {
+        align_ptr = EZMEM_ALIGN_PTR(nodes[i], EZMEM_ALIGNMENT);
+        fprintf(stdout, "ptr:%p, align_ptr:%p, use mem:%8lu\n", (void *) nodes[i], align_ptr, zmalloc_used_memory());
+        ez_free(nodes[i]);
+    }
+    fprintf(stdout, "ez_free over, use mem:%8lu\n", zmalloc_used_memory());
+    fprintf(stdout, "------------------------------> test malloc <----------------------------------------\n");
     return 0;
 }
