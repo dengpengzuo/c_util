@@ -33,7 +33,7 @@ void ez_localtime_r(const time_t * _time_t, struct tm *_tm)
 	#endif
 }
 
-int _ez_atoi(uint8_t * line, size_t n)
+int ez_atoi(uint8_t * line, size_t n)
 {
 	int value;
 

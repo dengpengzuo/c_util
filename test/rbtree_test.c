@@ -62,7 +62,7 @@ int main(int argc, char **argv) {
     fprintf(stdout, "------------------------------> test malloc <----------------------------------------\n");
     void *align_ptr = NULL;
     for (int i = 0; i < NODES; ++i) {
-        align_ptr = EZMEM_ALIGN_PTR(nodes[i], EZMEM_ALIGNMENT);
+        align_ptr = EZ_ALIGN_PTR(nodes[i]);
         fprintf(stdout, "ptr:%p, align_ptr:%p, use mem:%8lu\n", (void *) nodes[i], align_ptr, zmalloc_used_memory());
         ez_free(nodes[i]);
     }
