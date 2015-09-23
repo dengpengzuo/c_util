@@ -5,6 +5,7 @@
 #include <string.h>
 #include <time.h>
 
+#include "ez_macro.h"
 #include "ez_log.h"
 #include "ez_malloc.h"
 #include "ez_util.h"

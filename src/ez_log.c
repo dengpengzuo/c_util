@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+#include "ez_macro.h"
 #include "ez_util.h"
 #include "ez_log.h"
 

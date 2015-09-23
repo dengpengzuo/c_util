@@ -7,6 +7,7 @@
 
 #include <ez_net.h>
 #include <ez_log.h>
+#include <ez_macro.h>
 #include <ez_util.h>
 
 struct ez_signal {

@@ -6,6 +6,7 @@
 #include <pthread.h>
 
 #include <ez_atomic.h>
+#include <ez_macro.h>
 #include <ez_util.h>
 #include <ez_net.h>
 #include <ez_log.h>

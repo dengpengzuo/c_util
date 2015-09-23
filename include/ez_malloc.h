@@ -5,19 +5,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#ifndef EZMEM_ALIGNMENT
-#define EZMEM_ALIGNMENT       sizeof(uintptr_t)
-#endif
-
-/*
- * Make data 'd' or pointer 'p', n-byte aligned, where n is a power of 2
- * of 2.
- */
-#define EZMEM_ALIGN(d, a)     (((d) + (a - 1)) & ~(a - 1))
-
-#define EZMEM_ALIGN_PTR(p, a)  \
-    (void *) (((uintptr_t) (p) + ((uintptr_t) a - 1)) & ~((uintptr_t) a - 1))
-
 /* =============================================================================
  * Memory allocation and free
  */

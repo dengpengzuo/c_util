@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <ez_rbtree.h>
 #include <ez_malloc.h>
+#include <ez_macro.h>
 #include <ez_util.h>
 
 #define NODES 100
