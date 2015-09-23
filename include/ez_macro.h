@@ -17,13 +17,16 @@
 /*
  * Make data 'd' or pointer 'p', n-byte aligned, where n is a power of 2
  */
-#define EZ_ALIGNMENT           sizeof(uintptr_t)	/* platform word */
+#define EZ_ALIGNMENT           sizeof(uintptr_t)    /* platform word */
+#define EZ_ALIGN(d)            (ez_align_to(d, EZ_ALIGNMENT-1))
+static inline size_t ez_align_to(size_t d, size_t a) {
+    return (size_t)(d + a) & ~a;
+}
 
-#define EZ_ALIGN(d)            EZ_ALIGN_TO(d, EZ_ALIGNMENT)
-#define EZ_ALIGN_TO(d, n)      ((size_t)(((d) + (n - 1)) & ~(n - 1)))
-
-#define EZ_ALIGN_PTR(p)        EZ_ALIGN_PTR_TO(p, EZ_ALIGNMENT)
-#define EZ_ALIGN_PTR_TO(p,n)   ((void *) (((uintptr_t) (p) + ((uintptr_t) n - 1)) & ~((uintptr_t) n - 1)))
+#define EZ_ALIGN_PTR(p)        (ez_align_ptr_to(p,EZ_ALIGNMENT-1))
+static inline void *ez_align_ptr(void *ptr, size_t a) {
+    return (void *) (uintptr_t) ez_align_to((size_t)((uintptr_t) ptr), a);
+}
 
 /* pointer cast int macro */
 #define PTR_TO_UINT32(p) ((uint32_t) ((uintptr_t) (p)))
