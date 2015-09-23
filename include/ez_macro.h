@@ -12,7 +12,7 @@
 #define EZ_NELEMS(ARRAY)    ((sizeof(ARRAY)) / sizeof((ARRAY)[0]))
 
 #define EZ_OFFSETOF(TYPE, MEMBER)             ((uintptr_t)&(((TYPE *)0)->MEMBER))
-#define EZ_CONTAINER_OF(ptr, type, member)    ((type *)((uint8_t*)ptr - EZ_OFFSETOF(type, member)))
+#define EZ_CONTAINER_OF(ptr, type, member)    ((type *)(((uintptr_t)ptr) - EZ_OFFSETOF(type, member)))
 
 /*
  * Make data 'd' or pointer 'p', n-byte aligned, where n is a power of 2
