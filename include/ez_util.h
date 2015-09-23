@@ -7,33 +7,7 @@
 #include <stdbool.h>
 #include <time.h>
 
-#define EZ_NOTUSED(V)	 ((void) V)
-
-#define EZ_NELEMS(ARRAY) ((sizeof(ARRAY)) / sizeof((ARRAY)[0]))
-
-#define MIN(a, b)        ((a) < (b) ? (a) : (b))
-#define MAX(a, b)        ((a) > (b) ? (a) : (b))
-
-#define EZ_OFFSETOF(TYPE, MEMBER)             ((uintptr_t)&(((TYPE *)0)->MEMBER))
-
-#define EZ_CONTAINER_OF(ptr, type, member)    ((type *)((uint8_t*)ptr - EZ_OFFSETOF(type, member)))
-
-#ifndef EZ_ALIGNMENT
-#define EZ_ALIGNMENT        sizeof(uintptr_t)	/* platform word */
-#endif
-
-/*
- * Make data 'd' or pointer 'p', n-byte aligned, where n is a power of 2
- * of 2.
- */
-#define EZ_ALIGN(d, n)      ((size_t)(((d) + (n - 1)) & ~(n - 1)))
-#define EZ_ALIGN_PTR(p, n)  \
-    (void *) (((uintptr_t) (p) + ((uintptr_t) n - 1)) & ~((uintptr_t) n - 1))
-
-#define ez_atoi(_line, _n)          \
-    _ez_atoi((uint8_t *)_line, (size_t)_n)
-
-int _ez_atoi(uint8_t * line, size_t n);
+int ez_atoi(uint8_t * line, size_t n);
 
 /*
  * Wrappers around strtoull, strtoll, strtoul, strtol that are safer and
