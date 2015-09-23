@@ -24,7 +24,7 @@ static inline size_t ez_align_to(size_t d, size_t a) {
 }
 
 #define EZ_ALIGN_PTR(p)        (ez_align_ptr_to(p,EZ_ALIGNMENT-1))
-static inline void *ez_align_ptr(void *ptr, size_t a) {
+static inline void *ez_align_ptr_to(void *ptr, size_t a) {
     return (void *) (uintptr_t) ez_align_to((size_t)((uintptr_t) ptr), a);
 }
 
