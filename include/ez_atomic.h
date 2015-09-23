@@ -19,5 +19,7 @@
 /* Atomic BIT operator */
 #define ATOM_BIT_AND(ptr, n)  __sync_and_and_fetch(ptr, n)
 #define ATOM_BIT_FAND(ptr, n) __sync_fetch_and_and(ptr, n)
+#define ATOM_BIT_OR(ptr, n)  __sync_or_and_fetch(ptr, n)
+#define ATOM_BIT_FOR(ptr, n) __sync_fetch_and_or(ptr, n)
 
 #endif //EZ_CUTIL_EZ_ATOMIC_H
