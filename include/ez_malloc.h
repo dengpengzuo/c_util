@@ -15,8 +15,6 @@ void zfree(void *ptr);
 
 size_t zmalloc_used_memory(void);
 
-void zmalloc_disable_thread_safeness(void);
-
 typedef void (*zmalloc_oom_handler_t) (size_t);
 void zmalloc_set_oom_handler(zmalloc_oom_handler_t oom_handler);
 

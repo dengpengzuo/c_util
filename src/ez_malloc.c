@@ -22,31 +22,19 @@
 
 #endif
 
+#include "ez_macro.h"
 #include "ez_atomic.h"
-#include "ez_malloc.h"
 #include "ez_log.h"
+#include "ez_malloc.h"
 
-static uint64_t used_memory = 0;
-static int zmalloc_thread_safe = 1;	// 用于多线程环境
+static volatile uint64_t used_memory = 0;
 
 #define update_zmalloc_stat_alloc(__n) do { \
-    size_t _n = (__n); \
-    if (_n&(sizeof(long)-1)) _n += sizeof(long)-(_n&(sizeof(long)-1)); \
-    if (zmalloc_thread_safe) { \
-        ATOM_INC_N(&used_memory, _n); \
-    } else { \
-        used_memory += _n; \
-    } \
+	ATOM_INC_N(&used_memory, EZ_ALIGN(__n)); \
 } while(0)
 
 #define update_zmalloc_stat_free(__n) do { \
-    size_t _n = (__n); \
-    if (_n&(sizeof(long)-1)) _n += sizeof(long)-(_n&(sizeof(long)-1)); \
-    if (zmalloc_thread_safe) { \
-        ATOM_DEC_N(&used_memory, _n); \
-    } else { \
-        used_memory -= _n; \
-    } \
+	ATOM_DEC_N(&used_memory, EZ_ALIGN(__n)); \
 } while(0)
 
 static void zmalloc_default_oom(size_t size)
@@ -78,6 +66,7 @@ void *zcalloc(size_t count, size_t size)
 
 	if (!ptr)
 		zmalloc_oom_handler(nSize);
+
 	update_zmalloc_stat_alloc(__malloc_size(ptr));
 
 	return ptr;
@@ -110,20 +99,8 @@ void zfree(void *ptr)
 
 size_t zmalloc_used_memory(void)
 {
-	size_t um;
-
-	if (zmalloc_thread_safe) {
-		um = ATOM_INC_N(&used_memory, 0);
-	} else {
-		um = used_memory;
-	}
-
-	return um;
-}
-
-void zmalloc_disable_thread_safeness(void)
-{
-	zmalloc_thread_safe = 0;
+	uint64_t um = used_memory;
+	return (size_t) um;
 }
 
 void zmalloc_set_oom_handler(zmalloc_oom_handler_t oom_handler)
