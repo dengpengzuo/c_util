@@ -140,7 +140,7 @@ void *_ez_calloc(size_t num, size_t size, const char *name, int line)
 void *_ez_realloc(void *ptr, size_t size, const char *name, int line)
 {
 	void *p;
-
+	// 要注意：如果size=0时，CLIB会执行free(ptr)，这样外部再free(ptr)时会报错
 	p = zrealloc(ptr, size);
 	if (p == NULL) {
         log_error_x(name, line, "realloc(addr: %p, size:%zu) failed ", ptr, size);
