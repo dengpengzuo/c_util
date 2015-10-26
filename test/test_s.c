@@ -143,7 +143,7 @@ void read_client_handler(ezEventLoop *eventLoop, int c, void *clientData, int ma
 }
 
 void worker_push_client(int c) {
-    uint32_t wid = (uint32_t) (c % WORKER_SIZE);
+    uint32_t wid = (uint32_t) (c & (WORKER_SIZE - 1));
 
     ez_net_set_non_block(c);
     ez_net_tcp_enable_nodelay(c);
