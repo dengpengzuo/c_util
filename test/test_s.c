@@ -30,8 +30,7 @@ struct ez_signal {
 }; // 字节对齐, sizeof(struct ez_signal)=32 bytes.
 
 static ezWorker boss;
-#define WORKER_SIZE            4
-static ezWorker workers[WORKER_SIZE];
+static ezWorker workers[4];
 
 static void dispatch_signal_handler(int signo);
 
@@ -95,7 +94,7 @@ void *run_event_thread_proc(void *t) {
     ez_run_event_loop(worker->w_event);
 
     pthread_mutex_lock(&(worker->lock));
-    log_info("worker:[%d] event_thread_proc exit.", worker->id);
+    log_info("worker [%d] > event_thread_proc exit.", worker->id);
     pthread_cond_signal(&(worker->cond));   // 发出信号，表示退出了.
     pthread_mutex_unlock(&(worker->lock));
 
@@ -143,7 +142,7 @@ void read_client_handler(ezEventLoop *eventLoop, int c, void *clientData, int ma
 }
 
 void worker_push_client(int c) {
-    uint32_t wid = (uint32_t) (c & (WORKER_SIZE - 1));
+    uint32_t wid = (uint32_t) (c & (EZ_NELEMS(workers) - 1));
 
     ez_net_set_non_block(c);
     ez_net_tcp_enable_nodelay(c);
@@ -197,7 +196,7 @@ void init_boss() {
 void init_workers() {
     pthread_t thid;
 
-    for (int i = 0; i < WORKER_SIZE; ++i) {
+    for (int i = 0; i < EZ_NELEMS(workers); ++i) {
         workers[i].id = i + 1;
         workers[i].w_event = ez_create_event_loop(1024);
         pthread_mutex_init(&(workers[i].lock), NULL);
@@ -223,7 +222,7 @@ void wait_and_stop_boss() {
 }
 
 void wait_and_stop_workers() {
-    for (int i = 0; i < WORKER_SIZE; ++i) {
+    for (int i = 0; i < EZ_NELEMS(workers); ++i) {
         log_info("main > wait worker[%d] event loop break ...", workers[i].id);
 
         pthread_mutex_lock(&workers[i].lock);
@@ -249,28 +248,22 @@ int main(int argc, char **argv) {
     log_init(LOG_INFO, NULL);
 
     int s = ez_net_tcp_server(port, "0.0.0.0", 1024);    // 监听的SRC := 0.0.0.0
-    int s6 = ez_net_tcp6_server(port, "::", 1024);       // 监听的SRC := ::
-    log_info("server %d at port %d wait client ...", s, port);
-    log_info("server %d at port %d wait client ...", s6, port);
+    log_info("server %d bind %s:%d wait client ...", s, "0.0.0.0", port);
 
     init_boss();
     init_workers();
-
     //============================================================================
     {
         // add s accept
         ez_create_file_event(boss.w_event, s, AE_READABLE, accept_handler, NULL);
-        ez_create_file_event(boss.w_event, s6, AE_READABLE, accept_handler, NULL);
-        // test time out.
-        ez_create_time_event(boss.w_event, 5000, time_out_handler, NULL);
+        // add one time out event.
+        ez_create_time_event(boss.w_event, 1000 * 60, time_out_handler, NULL);
     }
     //============================================================================
-
     wait_and_stop_boss();
     wait_and_stop_workers();
 
     ez_net_close_socket(s);
-    ez_net_close_socket(s6);
 
     log_release();
     return 0;
