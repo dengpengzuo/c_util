@@ -15,6 +15,9 @@ int list_is_empty(list_head *head);
 
 void list_foreach(list_head *head, void (*func)(list_head *entry));
 
+#define LIST_FOR(head) \
+    for (list_head * pos = (head)->next, *n = pos->next ; pos != head; pos = n, n = pos->next)
+
 typedef enum {
     BREAK_EACH = 0,
     CONTINUE_EACH

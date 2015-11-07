@@ -6,18 +6,37 @@
 #include <pthread.h>
 
 #include <ez_macro.h>
+#include <ez_malloc.h>
 #include <ez_net.h>
 #include <ez_log.h>
 #include <ez_event.h>
+#include <ez_list.h>
 
 typedef struct ezWorker_t {
     int32_t id;
     pthread_t thid;
     ezEventLoop *w_event;
+    list_head clients;
 
     pthread_mutex_t lock;
     pthread_cond_t cond;
 } ezWorker;
+
+typedef struct connect_t {
+    list_head list_node;
+
+    int fd;
+    char addr[256];
+    int port;
+
+    uint64_t last_read;
+    /* 上一次读取消息时间 */
+    uint64_t last_write; /* 上一次写入消息时间 */
+} connect;
+
+static inline connect *cast_to_connect(list_head *entry) {
+    return EZ_CONTAINER_OF(entry, struct connect_t, list_node);
+}
 
 struct ez_signal {
     int signo;
@@ -102,84 +121,43 @@ void *run_event_thread_proc(void *t) {
 }
 
 void read_client_handler(ezEventLoop *eventLoop, int c, void *clientData, int mask) {
-    EZ_NOTUSED(clientData);
-#define BUF_SIZE 16
-    char buf[BUF_SIZE + 1];
-    int r = 0;
-    ssize_t nread = 0;
-    ssize_t nwrite = 0;
-
-    if ((mask & AE_READABLE) == AE_READABLE) {
-        r = ez_net_read(c, buf, BUF_SIZE, &nread);
-        if (r == ANET_EAGAIN) {
-            if (nread == 0) return; // 读不出来或者数据没有来，下次继续读
-        } else if (r == ANET_OK && nread == 0) {
-            // ez_event 会在 client 端close也引发 AE_READABLE 事件，
-            // 这时读取这个socket的结果就是读取0字节内容。
-            log_info("发现客户端 %d 已经关闭，被动关闭socket!", c);
-            ez_delete_file_event(eventLoop, c, AE_READABLE);
-            ez_net_close_socket(c);
-            return;
-        } else if (r == ANET_ERR) {
-            log_info("client %d > read error:[%d,%s]!", c, errno, strerror(errno));
-        }
-        if (nread > 0) {
-            buf[nread] = '\0';
-            log_hexdump(LOG_INFO, buf, nread, "client %d > 读取 %d bytes!", c, nread);
-
-            if (strcmp(buf, "aclose") == 0) {
-                // 主动关闭
-                log_info("客户端 %d 发来命令，要求服务器主动关闭 connection !", c);
-                ez_delete_file_event(eventLoop, c, AE_READABLE);
-                ez_net_close_socket(c);
-            } else {
-                // 将内容回写到客户端.
-                r = ez_net_write(c, buf, (size_t) nread, &nwrite);
-                log_info("client %d > 回写 %d bytes, result %d!", c, nwrite, r);
-            }
-        }
-    }
-}
-
-void worker_push_client(int c) {
-    uint32_t wid = (uint32_t) (c & (EZ_NELEMS(workers) - 1));
-
-    ez_net_set_non_block(c);
-    ez_net_tcp_enable_nodelay(c);
-    ez_net_tcp_keepalive(c, 30);
-
-    log_info("worker %d > add new client %d .", workers[wid].id, c);
-    if (ez_create_file_event(workers[wid].w_event, c, AE_READABLE, read_client_handler, NULL) == AE_ERR) {
-        log_info("worker %d > add new client %d(AE_READABLE) failed!", workers[wid].id, c);
-        ez_net_close_socket(c);
-    }
+    connect *client = (connect *) clientData;
 }
 
 void accept_handler(ezEventLoop *eventLoop, int s, void *clientData, int mask) {
     EZ_NOTUSED(eventLoop);
     EZ_NOTUSED(clientData);
     EZ_NOTUSED(mask);
-    char client_addr[256];
-    int client_port;
-    int c = ez_net_tcp_accept(s);
 
+    int c = ez_net_tcp_accept(s);
     if (c < ANET_OK) {
         return;
     }
+    uint32_t wid = (uint32_t) (c & (EZ_NELEMS(workers) - 1));
 
-    ez_net_peer_name(c, client_addr, 255, &client_port);
-    client_addr[255] = '\0';
-    log_info("server accept client [id:%d, %s:%d]", c, client_addr, client_port);
+    connect *client = ez_malloc(sizeof(connect));
+    if (client == NULL) {
+        log_error("server malloc connect faired, force close [%d].", c);
+        ez_net_close_socket(c);
+        return;
+    }
+    client->fd = c;
+    ez_net_peer_name(c, client->addr, 255, &client->port);
+    log_info("server accept client [id:%d, %s:%d]", client->fd, client->addr, client->port);
 
-    worker_push_client(c);
-}
+    ez_net_set_non_block(client->fd);
+    ez_net_tcp_enable_nodelay(client->fd);
+    ez_net_tcp_keepalive(client->fd, 120);
 
-int time_out_handler(ezEventLoop *eventLoop, int64_t timeId, void *clientData) {
-    EZ_NOTUSED(eventLoop);
-    EZ_NOTUSED(clientData);
-    log_info("timeId %li fired, next go.", timeId);
+    if (ez_create_file_event(workers[wid].w_event, client->fd, AE_READABLE, read_client_handler, client) == AE_ERR) {
+        log_error("server add new client %d(AE_READABLE) failed!", workers[wid].id, client->fd);
+        ez_net_close_socket(client->fd);
+        ez_free(client);
+        return;
+    }
 
-    return AE_TIMER_NEXT;
+    log_info("server add new client %d to worker [%d].", client->fd, workers[wid].id);
+    list_add(&client->list_node, &workers[wid].clients);
 }
 
 void init_boss() {
@@ -193,14 +171,36 @@ void init_boss() {
     pthread_create(&thid, NULL, run_event_thread_proc, &boss);
 }
 
+void init_server(int s) {
+    // 将s加入boss接收clent连接.
+    ez_create_file_event(boss.w_event, s, AE_READABLE, accept_handler, NULL);
+}
+
+int time_out_handler(ezEventLoop *eventLoop, int64_t timeId, void *clientData) {
+    ezWorker *worker = (ezWorker *) clientData;
+    log_info("worker [%d]> timeId:%li clean die client.", worker->id, timeId);
+
+    connect *con = NULL;
+    LIST_FOR(&worker->clients) {
+        con = cast_to_connect(pos);
+        log_info("worker [%d]> timeId:%li 处理 client [%d] 超时 ... ", worker->id, timeId, con->fd);
+    }
+    return AE_TIMER_NEXT;
+}
+
 void init_workers() {
     pthread_t thid;
 
     for (int i = 0; i < EZ_NELEMS(workers); ++i) {
         workers[i].id = i + 1;
         workers[i].w_event = ez_create_event_loop(1024);
+        init_list_head(&workers[i].clients);
+
         pthread_mutex_init(&(workers[i].lock), NULL);
         pthread_cond_init(&(workers[i].cond), NULL);
+
+        // add one time out event.
+        ez_create_time_event(workers[i].w_event, 1000 * 30, time_out_handler, &workers[i]);
 
         pthread_create(&thid, NULL, run_event_thread_proc, &workers[i]);
     }
@@ -221,6 +221,11 @@ void wait_and_stop_boss() {
     pthread_cond_destroy(&boss.cond);
 }
 
+void free_connect(list_head *entry) {
+    connect *con = cast_to_connect(entry);
+    ez_free(con);
+}
+
 void wait_and_stop_workers() {
     for (int i = 0; i < EZ_NELEMS(workers); ++i) {
         log_info("main > wait worker[%d] event loop break ...", workers[i].id);
@@ -236,6 +241,8 @@ void wait_and_stop_workers() {
         ez_delete_event_loop(workers[i].w_event);
         pthread_mutex_destroy(&workers[i].lock);
         pthread_cond_destroy(&workers[i].cond);
+
+        list_foreach(&workers[i].clients, free_connect);
     }
 }
 
@@ -252,14 +259,9 @@ int main(int argc, char **argv) {
 
     init_boss();
     init_workers();
-    //============================================================================
-    {
-        // add s accept
-        ez_create_file_event(boss.w_event, s, AE_READABLE, accept_handler, NULL);
-        // add one time out event.
-        ez_create_time_event(boss.w_event, 1000 * 60, time_out_handler, NULL);
-    }
-    //============================================================================
+
+    init_server(s);
+
     wait_and_stop_boss();
     wait_and_stop_workers();
 
