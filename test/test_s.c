@@ -16,7 +16,7 @@ typedef struct ezWorker_t {
     int32_t id;
     pthread_t thid;
     ezEventLoop *w_event;
-    list_head clients;
+    list_head client_queue;
 
     pthread_mutex_t lock;
     pthread_cond_t cond;
@@ -29,9 +29,7 @@ typedef struct connect_t {
     char addr[256];
     int port;
 
-    uint64_t last_read;
-    /* 上一次读取消息时间 */
-    uint64_t last_write; /* 上一次写入消息时间 */
+    uint64_t lasttime;  /* 上一次存活时间点 */
 } connect;
 
 static inline connect *cast_to_connect(list_head *entry) {
@@ -108,12 +106,11 @@ static void cust_signal_init(void) {
 
 void *run_event_thread_proc(void *t) {
     ezWorker *worker = (ezWorker *) t;
-    worker->thid = pthread_self();
-
+    //worker->thid = pthread_self();
     ez_run_event_loop(worker->w_event);
 
     pthread_mutex_lock(&(worker->lock));
-    log_info("worker [%d] > event_thread_proc exit.", worker->id);
+    log_info("worker [%d] > exit run_event_thread_proc.", worker->id);
     pthread_cond_signal(&(worker->cond));   // 发出信号，表示退出了.
     pthread_mutex_unlock(&(worker->lock));
 
@@ -155,25 +152,16 @@ void accept_handler(ezEventLoop *eventLoop, int s, void *clientData, int mask) {
         ez_free(client);
         return;
     }
-
+    // TODO:这儿只会与每个worker线程的timeout有共享变量冲突，不是线程安全.
     log_info("server add new client %d to worker [%d].", client->fd, workers[wid].id);
-    list_add(&client->list_node, &workers[wid].clients);
+    list_add(&client->list_node, &workers[wid].client_queue);
 }
 
 void init_boss() {
-    pthread_t thid;
-
     boss.id = 0;
     boss.w_event = ez_create_event_loop(128);
     pthread_mutex_init(&(boss.lock), NULL);
     pthread_cond_init(&(boss.cond), NULL);
-
-    pthread_create(&thid, NULL, run_event_thread_proc, &boss);
-}
-
-void init_server(int s) {
-    // 将s加入boss接收clent连接.
-    ez_create_file_event(boss.w_event, s, AE_READABLE, accept_handler, NULL);
 }
 
 int time_out_handler(ezEventLoop *eventLoop, int64_t timeId, void *clientData) {
@@ -181,7 +169,7 @@ int time_out_handler(ezEventLoop *eventLoop, int64_t timeId, void *clientData) {
     log_info("worker [%d]> timeId:%li clean die client.", worker->id, timeId);
 
     connect *con = NULL;
-    LIST_FOR(&worker->clients) {
+    LIST_FOR(&(worker->client_queue)) {
         con = cast_to_connect(pos);
         log_info("worker [%d]> timeId:%li 处理 client [%d] 超时 ... ", worker->id, timeId, con->fd);
     }
@@ -189,26 +177,35 @@ int time_out_handler(ezEventLoop *eventLoop, int64_t timeId, void *clientData) {
 }
 
 void init_workers() {
-    pthread_t thid;
-
     for (int i = 0; i < EZ_NELEMS(workers); ++i) {
         workers[i].id = i + 1;
         workers[i].w_event = ez_create_event_loop(1024);
-        init_list_head(&workers[i].clients);
 
+        init_list_head(&workers[i].client_queue);
         pthread_mutex_init(&(workers[i].lock), NULL);
         pthread_cond_init(&(workers[i].cond), NULL);
+    }
+}
 
+void init_server(int s) {
+    int i;
+    // 将s加入boss接收clent连接.
+    ez_create_file_event(boss.w_event, s, AE_READABLE, accept_handler, NULL);
+    // 生成boss线程.
+    pthread_create(&boss.thid, NULL, run_event_thread_proc, &boss);
+
+    // 生成worker线程
+    for (i = 0; i < EZ_NELEMS(workers); ++i) {
         // add one time out event.
         ez_create_time_event(workers[i].w_event, 1000 * 30, time_out_handler, &workers[i]);
 
-        pthread_create(&thid, NULL, run_event_thread_proc, &workers[i]);
+        pthread_create(&workers[i].thid, NULL, run_event_thread_proc, &workers[i]);
     }
 }
 
 void wait_and_stop_boss() {
     log_info("main > wait boss event loop ...");
-    pthread_mutex_lock(&boss.lock);
+    pthread_mutex_lock(&boss.lock);                     // 先锁定
     pthread_cond_wait(&boss.cond, &boss.lock);          // wait cust_signal_handler 引发 run_event_thread_proc 线程退出消息.
     pthread_mutex_unlock(&boss.lock);
 
@@ -230,9 +227,9 @@ void wait_and_stop_workers() {
     for (int i = 0; i < EZ_NELEMS(workers); ++i) {
         log_info("main > wait worker[%d] event loop break ...", workers[i].id);
 
-        pthread_mutex_lock(&workers[i].lock);
+        pthread_mutex_lock(&workers[i].lock);                  // 先锁定
         ez_stop_event_loop(workers[i].w_event);                // 发送退出消息.
-        pthread_cond_wait(&workers[i].cond, &workers[i].lock); // 注意:pthread_con_wait必须先有wait，其他线程的cond_signal才会收得到.
+        pthread_cond_wait(&workers[i].cond, &workers[i].lock); // 注意:pthread_con_wait 必须先有waiter，其他线程的cond_signal才会收得到.
         pthread_mutex_unlock(&workers[i].lock);
 
         pthread_join(workers[i].thid, NULL);
@@ -242,7 +239,7 @@ void wait_and_stop_workers() {
         pthread_mutex_destroy(&workers[i].lock);
         pthread_cond_destroy(&workers[i].cond);
 
-        list_foreach(&workers[i].clients, free_connect);
+        list_foreach(&workers[i].client_queue, free_connect);
     }
 }
 
