@@ -16,7 +16,7 @@ typedef struct ezWorker_t {
     int32_t id;
     pthread_t thid;
     ezEventLoop *w_event;
-    list_head client_queue;
+    list_head clients;
 
     pthread_mutex_t lock;
     pthread_cond_t cond;
@@ -25,11 +25,16 @@ typedef struct ezWorker_t {
 typedef struct connect_t {
     list_head list_node;
 
-    int fd;
-    char addr[256];
-    int port;
+    int  fd;
+    char client_addr[256];
+    int  client_port;
 
     uint64_t lasttime;  /* 上一次存活时间点 */
+
+    uint8_t *rbbuf;  /* read buffer */
+    size_t   rbsize; /* read buffer size */
+    size_t   rblen;  /* read buffer len */
+    uint8_t *rbcurr; /* read buffer point */
 } connect;
 
 static inline connect *cast_to_connect(list_head *entry) {
@@ -119,6 +124,7 @@ void *run_event_thread_proc(void *t) {
 
 void read_client_handler(ezEventLoop *eventLoop, int c, void *clientData, int mask) {
     connect *client = (connect *) clientData;
+    EZ_NOTUSED(client);
 }
 
 void accept_handler(ezEventLoop *eventLoop, int s, void *clientData, int mask) {
@@ -131,6 +137,7 @@ void accept_handler(ezEventLoop *eventLoop, int s, void *clientData, int mask) {
         return;
     }
     uint32_t wid = (uint32_t) (c & (EZ_NELEMS(workers) - 1));
+    ezWorker *worker = &workers[wid];
 
     connect *client = ez_malloc(sizeof(connect));
     if (client == NULL) {
@@ -139,22 +146,24 @@ void accept_handler(ezEventLoop *eventLoop, int s, void *clientData, int mask) {
         return;
     }
     client->fd = c;
-    ez_net_peer_name(c, client->addr, 255, &client->port);
-    log_info("server accept client [id:%d, %s:%d]", client->fd, client->addr, client->port);
+    ez_net_peer_name(c, client->client_addr, 255, &client->client_port);
+    log_info("server accept client [id:%d, %s:%d]", client->fd, client->client_addr, client->client_port);
 
     ez_net_set_non_block(client->fd);
     ez_net_tcp_enable_nodelay(client->fd);
     ez_net_tcp_keepalive(client->fd, 120);
 
-    if (ez_create_file_event(workers[wid].w_event, client->fd, AE_READABLE, read_client_handler, client) == AE_ERR) {
-        log_error("server add new client %d(AE_READABLE) failed!", workers[wid].id, client->fd);
+    if (ez_create_file_event(worker->w_event, client->fd, AE_READABLE, read_client_handler, client) == AE_ERR) {
+        log_error("server add new client %d(AE_READABLE) failed!", worker->id, client->fd);
         ez_net_close_socket(client->fd);
         ez_free(client);
         return;
     }
-    // TODO:这儿只会与每个worker线程的timeout有共享变量冲突，不是线程安全.
-    log_info("server add new client %d to worker [%d].", client->fd, workers[wid].id);
-    list_add(&client->list_node, &workers[wid].client_queue);
+
+    pthread_mutex_lock(&worker->lock);
+    log_info("server add new client %d to worker [%d].", client->fd, worker->id);
+    list_add(&client->list_node, &worker->clients);
+    pthread_mutex_unlock(&worker->lock);
 }
 
 void init_boss() {
@@ -165,14 +174,18 @@ void init_boss() {
 }
 
 int time_out_handler(ezEventLoop *eventLoop, int64_t timeId, void *clientData) {
-    ezWorker *worker = (ezWorker *) clientData;
-    log_info("worker [%d]> timeId:%li clean die client.", worker->id, timeId);
-
     connect *con = NULL;
-    LIST_FOR(&(worker->client_queue)) {
+    ezWorker *worker = (ezWorker *) clientData;
+    log_info("worker [%d]> timeId:%li clean die client ...", worker->id, timeId);
+
+    pthread_mutex_lock(&worker->lock);
+    LIST_FOR(&(worker->clients)) {
         con = cast_to_connect(pos);
-        log_info("worker [%d]> timeId:%li 处理 client [%d] 超时 ... ", worker->id, timeId, con->fd);
+        log_info("worker [%d]> timeId:%li ****> client [%d]", worker->id, timeId, con->fd);
     }
+    pthread_mutex_unlock(&worker->lock);
+
+    log_info("worker [%d]> timeId:%li clean die client ok!", worker->id, timeId);
     return AE_TIMER_NEXT;
 }
 
@@ -181,7 +194,7 @@ void init_workers() {
         workers[i].id = i + 1;
         workers[i].w_event = ez_create_event_loop(1024);
 
-        init_list_head(&workers[i].client_queue);
+        init_list_head(&workers[i].clients);
         pthread_mutex_init(&(workers[i].lock), NULL);
         pthread_cond_init(&(workers[i].cond), NULL);
     }
@@ -197,7 +210,7 @@ void init_server(int s) {
     // 生成worker线程
     for (i = 0; i < EZ_NELEMS(workers); ++i) {
         // add one time out event.
-        ez_create_time_event(workers[i].w_event, 1000 * 30, time_out_handler, &workers[i]);
+        ez_create_time_event(workers[i].w_event, 1000 * 60, time_out_handler, &workers[i]);
 
         pthread_create(&workers[i].thid, NULL, run_event_thread_proc, &workers[i]);
     }
@@ -239,7 +252,7 @@ void wait_and_stop_workers() {
         pthread_mutex_destroy(&workers[i].lock);
         pthread_cond_destroy(&workers[i].cond);
 
-        list_foreach(&workers[i].client_queue, free_connect);
+        list_foreach(&workers[i].clients, free_connect);
     }
 }
 
