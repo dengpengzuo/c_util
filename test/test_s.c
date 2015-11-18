@@ -224,7 +224,7 @@ int time_out_handler(ezEventLoop *eventLoop, int64_t timeId, void *clientData) {
 
     curtime = ez_cur_milliseconds();
     pthread_mutex_lock(&worker->lock);
-    LIST_FOR(&(worker->clients)) {
+    LIST_FOR(&(worker->clients), pos) {
         con = cast_to_connect(pos);
         log_info("worker [%d]> timeId:%li ****> client [%d]", worker->id, timeId, con->fd);
         con->lasttime = curtime;

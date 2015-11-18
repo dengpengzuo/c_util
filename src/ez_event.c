@@ -150,7 +150,6 @@ void ez_delete_event_loop(ezEventLoop * eventLoop)
 	ezRBTreeNode *i;
 	ezFileEvent *e;
 	ezTimeEvent *t;
-	list_head *ti;
 	if (!eventLoop)
 		return;
 	ezApiDelete(eventLoop);
@@ -169,12 +168,10 @@ void ez_delete_event_loop(ezEventLoop * eventLoop)
 
 	ez_free(eventLoop->fired);
 
-    for (ti = eventLoop->time_events.next; ti != &eventLoop->time_events;) {
-		list_head *tmp = ti;
-        ti = ti->next; // list_del前先跳到next上.
-		list_del(tmp);
+	LIST_FOR(&(eventLoop->time_events), ti) {
+		list_del(ti);
 
-		t = cast_to_time_event(tmp);
+		t = cast_to_time_event(ti);
 		log_debug("delete time event [id:%li].", t->id);
 		ez_free(t);
 	}
@@ -305,17 +302,15 @@ int64_t ez_create_time_event(ezEventLoop * eventLoop, int64_t period, ezTimeProc
 void ez_delete_time_event(ezEventLoop * eventLoop, int64_t id)
 {
     ezTimeEvent *te = NULL;
-    for (list_head *i = eventLoop->time_events.next; i != &eventLoop->time_events;) {
-        te = cast_to_time_event(i);
-        if (te->id == id) {
+	LIST_FOR(&(eventLoop->time_events), pos) {
+		te = cast_to_time_event(pos);
+		if (te->id == id) {
 			log_debug("delete time event [id:%li].", id);
-            list_del(i);
-            ez_free(te);
+			list_del(pos);
+			ez_free(te);
 			return;
-        } else {
-            i = i->next;
-        }
-   	}
+		}
+	}
 }
 
 #define AE_FILE_EVENTS  1
@@ -357,9 +352,7 @@ static int process_time_events(ezEventLoop * eventLoop)
 	}
 	eventLoop->lastTime = now;
 
-	for (list_head *ti = eventLoop->time_events.next; ti != &eventLoop->time_events;) {
-		list_head *tmp = ti;
-		ti = ti->next;
+	LIST_FOR(&(eventLoop->time_events), tmp){
 		te = cast_to_time_event(tmp);
 		now_ms = ez_cur_milliseconds();
 
