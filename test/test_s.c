@@ -11,6 +11,7 @@
 #include <ez_log.h>
 #include <ez_event.h>
 #include <ez_list.h>
+#include <ez_util.h>
 
 typedef struct ezWorker_t {
     int32_t id;
@@ -29,11 +30,11 @@ typedef struct connect_t {
     char client_addr[256];
     int  client_port;
 
-    uint64_t lasttime;  /* 上一次存活时间点 */
+    int64_t  lasttime;  /* 上一次check time 时间点 */
 
     uint8_t *rbbuf;  /* read buffer */
     size_t   rbsize; /* read buffer size */
-    size_t   rblen;  /* read buffer len */
+    size_t   rblen;  /* read bytes  size */
     uint8_t *rbcurr; /* read buffer point */
 } connect;
 
@@ -124,7 +125,39 @@ void *run_event_thread_proc(void *t) {
 
 void read_client_handler(ezEventLoop *eventLoop, int c, void *clientData, int mask) {
     connect *client = (connect *) clientData;
-    EZ_NOTUSED(client);
+    int r = 0;
+    ssize_t nread = 0;
+
+    if ((mask & AE_READABLE) == AE_READABLE) {
+        // 没有空间[申请]
+        size_t read_max_size = client->rbsize - client->rblen;
+        r = ez_net_read(client->fd, (char *) client->rbcurr, read_max_size, &nread);
+
+        if (r == ANET_EAGAIN && nread == 0) {
+            return; // 读不出来或者数据没有来，下次继续读
+        } else if (r == ANET_OK && nread == 0) {
+            // ez_event 会在 client 端close也引发 AE_READABLE 事件，
+            // 这时读取这个socket的结果就是读取0字节内容。
+            log_info("发现客户端 %d[%s:%d] 已经关闭，被动关闭socket!", client->fd, client->client_addr,client->client_port);
+            ez_delete_file_event(eventLoop, client->fd, AE_READABLE);
+            ez_net_close_socket(client->fd);
+            list_del(&client->list_node);
+            ez_free(client);
+            return;
+        } else if (r == ANET_ERR) {
+            log_info("client %d[%s:%d] > read error:[%d,%s]!", client->fd, client->client_addr, client->client_port,
+                     errno, strerror(errno));
+        }
+        if (nread > 0) {
+            client->rblen += nread;
+            log_hexdump(LOG_INFO, client->rbbuf, client->rblen,
+                        "client %d[%s:%d] > 读取 %d bytes!", client->fd, client->client_addr, client->client_port,
+                        nread);
+            // 设为已经使用.
+            client->rbcurr = client->rbbuf;
+            client->rblen = 0;
+        }
+    }
 }
 
 void accept_handler(ezEventLoop *eventLoop, int s, void *clientData, int mask) {
@@ -145,7 +178,17 @@ void accept_handler(ezEventLoop *eventLoop, int s, void *clientData, int mask) {
         ez_net_close_socket(c);
         return;
     }
+    client->rbbuf = ez_malloc(128);
+    if (client->rbbuf == NULL) {
+        ez_net_close_socket(c);
+        ez_free(client);
+        return;
+    }
     client->fd = c;
+    client->rbcurr = client->rbbuf;
+    client->rblen = 0;
+    client->rbsize = 128;
+
     ez_net_peer_name(c, client->client_addr, 255, &client->client_port);
     log_info("server accept client [id:%d, %s:%d]", client->fd, client->client_addr, client->client_port);
 
@@ -174,14 +217,17 @@ void init_boss() {
 }
 
 int time_out_handler(ezEventLoop *eventLoop, int64_t timeId, void *clientData) {
+    int64_t curtime;
     connect *con = NULL;
     ezWorker *worker = (ezWorker *) clientData;
     log_info("worker [%d]> timeId:%li clean die client ...", worker->id, timeId);
 
+    curtime = ez_cur_milliseconds();
     pthread_mutex_lock(&worker->lock);
     LIST_FOR(&(worker->clients)) {
         con = cast_to_connect(pos);
         log_info("worker [%d]> timeId:%li ****> client [%d]", worker->id, timeId, con->fd);
+        con->lasttime = curtime;
     }
     pthread_mutex_unlock(&worker->lock);
 
