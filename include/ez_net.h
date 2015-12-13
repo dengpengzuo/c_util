@@ -24,7 +24,7 @@ int ez_net_close_socket(int s);
 int ez_net_tcp_connect(const char *addr, int port);
 int ez_net_tcp_connect_non_block(const char *addr, int port);
 
-/* NonBlock read write
+/* NonBlock net_read & net_write
    @return ANET_EAGAIN:(非阻塞模式)读写已经执行, 读写字节数在nbytes
    @return ANET_ERR   :读写错误
    @return ANET_OK    :读写成功

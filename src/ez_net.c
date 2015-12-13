@@ -479,7 +479,7 @@ int ez_net_resolve_host_ip(char *host, char *ipbuf, size_t ipbuf_len)
 int ez_net_read(int fd, char *buf, size_t bufsize, ssize_t * nbytes)
 {
 	int ezerrno;
-	ssize_t r = read(fd, buf, bufsize);
+	ssize_t r = recv(fd, buf, bufsize, 0);
 	if (r == 0) {
 		*nbytes = 0;
 	} else if (r == -1) {
@@ -501,7 +501,7 @@ int ez_net_read(int fd, char *buf, size_t bufsize, ssize_t * nbytes)
 int ez_net_write(int fd, char *buf, size_t bufsize, ssize_t * nbytes)
 {
 	int ezerrno;
-	ssize_t r = write(fd, buf, bufsize);
+	ssize_t r = send(fd, buf, bufsize, 0);
 	if (r == 0) {
 		*nbytes = 0;
 	} else if (r == -1) {
