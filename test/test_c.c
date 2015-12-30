@@ -8,7 +8,6 @@
 #include <ez_net.h>
 #include <ez_log.h>
 #include <ez_macro.h>
-#include <ez_util.h>
 
 struct ez_signal {
     int  signo;
@@ -76,11 +75,10 @@ static void cust_signal_init(void)
 
 int read_char_from_stdin(char *buf, size_t bufsize) {
     ssize_t nread;
-    int r;
 
-    r = ez_net_read(STDIN_FILENO, buf, bufsize, &nread);
+    nread = read(STDIN_FILENO, buf, bufsize);
 
-    if (r == ANET_OK && nread > 0) {
+    if (nread > 0) {
         // read 中有个回车符换行符.
         buf[nread--] = '\0';
         while(nread >= 0 && (buf[nread] == '\n' || buf[nread] == '\r')) {
@@ -88,10 +86,8 @@ int read_char_from_stdin(char *buf, size_t bufsize) {
             --nread;
         }
         return (int)nread;
-    } else if (r == ANET_ERR)
-        return -1;
-    else
-        return 0;
+    }
+    return 0;
 }
 
 int wait_quit(int c) {
