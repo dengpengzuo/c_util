@@ -115,7 +115,7 @@ int wait_quit(int c) {
         }
         else if (strcmp(cmd, "sclose") == 0) {
             r = ez_net_write(c, cmd, strlen(cmd), &nwrite);
-            log_info("client %d > 要求服务器主动关闭 (Send:%d bytes, Result:%d)", c, nwrite, r); 
+            log_info("client %d > 要求服务器主动关闭 (Send: %li bytes, Result:%d)", c, nwrite, r);
             continue;
         }
         else if (strcmp(cmd, "close") == 0) {
@@ -129,13 +129,13 @@ int wait_quit(int c) {
         } 
         else if (strcmp(cmd, "send") == 0 ) {
             r = ez_net_write(c, buf, sizeof(buf), &nwrite);
-            log_info("client %d > 发送数据 %d bytes, result: %d .", c, nwrite, r);
+            log_info("client %d > 发送数据 %li bytes, result: %d .", c, nwrite, r);
             // 1.对端已经关闭,写入[result=>NET_OK  , nwrite => (0->N)].
             // 2.对端已经关闭,写入[result=>ANET_ERR, nwrite =>  0   ].
         }
         else if (strcmp(cmd, "recv") == 0) {
             r = ez_net_read(c, red, sizeof(red), &nread);
-            log_hexdump(LOG_INFO, red, nread, "client %d > 接收数据 %d bytes, result: %d.", c, nread, r);
+            log_hexdump(LOG_INFO, red, nread, "client %d > 接收数据 %li bytes, result: %d.", c, nread, r);
             // 对端已经关闭下，一直读取是[result=>NET_OK, nread => 0]
         }
     }

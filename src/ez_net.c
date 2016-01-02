@@ -474,19 +474,18 @@ int ez_net_resolve_host_ip(char *host, char *ipbuf, size_t ipbuf_len)
 	return ez_net_resolve_generic(host, ipbuf, ipbuf_len, RESOLVE_IP_ONLY);
 }
 
-/* Like read(2) but make sure 'count' is read before to return
- * (unless error or EOF condition is encountered) */
+/* NonBlock net_read & net_write */
 int ez_net_read(int fd, char *buf, size_t bufsize, ssize_t * nbytes)
 {
 	int ezerrno;
 	ssize_t r = recv(fd, buf, bufsize, 0);
 	if (r == 0) {
 		*nbytes = 0;
-	} else if (r == -1) {
+	} else if (r < 0) {
 		*nbytes = 0;
 		ezerrno = errno;
 		// linux define EWOULDBLOCK EAGAIN.
-		if (ezerrno == EAGAIN || ezerrno == EINTR || ezerrno == EWOULDBLOCK )
+		if (ezerrno == EAGAIN || ezerrno == EINTR /*|| ezerrno == EWOULDBLOCK */)
 			return ANET_EAGAIN;	/* 非阻塞模式 */
 		else
 			return ANET_ERR;
@@ -496,19 +495,18 @@ int ez_net_read(int fd, char *buf, size_t bufsize, ssize_t * nbytes)
 	return ANET_OK;
 }
 
-/* Like write(2) but make sure 'count' is read before to return
- * (unless error is encountered) */
+/* NonBlock net_read & net_write */
 int ez_net_write(int fd, char *buf, size_t bufsize, ssize_t * nbytes)
 {
 	int ezerrno;
 	ssize_t r = send(fd, buf, bufsize, 0);
 	if (r == 0) {
 		*nbytes = 0;
-	} else if (r == -1) {
+	} else if (r < 0) {
 		*nbytes = 0;
 		ezerrno = errno;
 		// linux define EWOULDBLOCK EAGAIN.
-		if (ezerrno == EAGAIN || ezerrno == EINTR || ezerrno == EWOULDBLOCK )
+		if (ezerrno == EAGAIN || ezerrno == EINTR /*|| ezerrno == EWOULDBLOCK*/ )
 			return ANET_EAGAIN;	/* 非阻塞模式 */
 		else
 			return ANET_ERR;
@@ -524,10 +522,12 @@ int ez_net_peer_name(int fd, char *ip, size_t ip_len, int *port)
 	socklen_t salen = sizeof(sa);
 
 	if (getpeername(fd, (struct sockaddr *)&sa, &salen) == -1) {
+		if (ip) {
+			ip[0] = '?';
+			ip[1] = '\0';
+		}
 		if (port)
 			*port = 0;
-		ip[0] = '?';
-		ip[1] = '\0';
 		return -1;
 	}
 	if (sa.ss_family == AF_INET) {
@@ -552,10 +552,12 @@ int ez_net_socket_name(int fd, char *ip, size_t ip_len, int *port)
 	socklen_t salen = sizeof(sa);
 
 	if (getsockname(fd, (struct sockaddr *)&sa, &salen) == -1) {
+		if (ip) {
+			ip[0] = '?';
+			ip[1] = '\0';
+		}
 		if (port)
 			*port = 0;
-		ip[0] = '?';
-		ip[1] = '\0';
 		return -1;
 	}
 	if (sa.ss_family == AF_INET) {
