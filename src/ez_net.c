@@ -85,7 +85,7 @@ static int _ez_net_tcp_server(int port, char *bindaddr, int af, int backlog)
 	ez_snprintf(_port, 6, "%d", port);
 
 	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = af;
+	hints.ai_family = af; // AF_INET, AF_INET6, AF_UNIX, AF_LOCAL
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = AI_PASSIVE;	/* No effect if bindaddr != NULL */
 
@@ -126,6 +126,31 @@ static int _ez_net_tcp_server(int port, char *bindaddr, int af, int backlog)
 	s = ANET_ERR;
  end:
 	freeaddrinfo(servinfo);
+	return s;
+}
+
+int ez_net_unix_server(int port, char *path, int backlog)
+{
+	int s ;
+	struct sockaddr_un sa;
+
+	// AF_LOCAL => AF_UNIX
+	if ((s = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
+		return ANET_ERR;
+	}
+
+	memset(&sa, 0, sizeof(sa));
+	sa.sun_family = AF_UNIX;
+	strncpy(sa.sun_path, path, sizeof(sa.sun_path) - 1);
+
+    if (ez_net_bind(s, (struct sockaddr *) &sa, sizeof(sa)) == ANET_ERR) {
+        ez_net_close_socket(s);
+        return ANET_ERR;
+    }
+    if (ez_net_listen(s, backlog) == ANET_ERR) {
+        ez_net_close_socket(s);
+        return ANET_ERR;
+    }
 	return s;
 }
 
@@ -177,6 +202,25 @@ static int ez_net_tcp_generic_accept(int s, struct sockaddr *sa, socklen_t * len
 	return fd;
 }
 
+int ez_net_unix_accept(int s)
+{
+	int fd;
+	struct sockaddr_un sa;
+
+	socklen_t salen = sizeof(sa);
+	fd = ez_net_tcp_generic_accept(s, (struct sockaddr *) &sa, &salen);
+
+	if (fd < ANET_OK) // accept error.
+		return ANET_ERR;
+
+	return fd;
+}
+
+int ez_net_tcp_accept(int fd)
+{
+	return ez_net_tcp_accept2(fd, NULL, 0, NULL);
+}
+
 int ez_net_tcp_accept2(int s, char *ip, size_t ip_len, int *port)
 {
 	int fd;
@@ -212,6 +256,54 @@ int ez_net_close_socket(int s)
 /* create client */
 #define ANET_CONNECT_NONE 0
 #define ANET_CONNECT_NONBLOCK 1
+
+static int ez_net_unix_connect_ex(const char *path, int flags)
+{
+	int s;
+	struct sockaddr_un sa;
+
+	// AF_LOCAL => AF_UNIX
+	if ((s = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
+		return ANET_ERR;
+	}
+
+	memset(&sa, 0, sizeof(sa));
+	sa.sun_family = AF_UNIX;
+	strncpy(sa.sun_path, path, sizeof(sa.sun_path) - 1);
+	if ((flags & ANET_CONNECT_NONBLOCK) && ez_net_set_non_block(s) != ANET_OK) {
+		ez_net_close_socket(s);
+		s = ANET_ERR;
+		return s;
+	}
+
+	if (connect(s, (struct sockaddr *) &sa, sizeof(sa)) == -1) {
+		/* If the socket is non-blocking, it is ok for connect() to
+         * return an EINPROGRESS error here. */
+		if (errno == EINPROGRESS && (flags & ANET_CONNECT_NONBLOCK))
+			goto end;
+		else
+			log_stderr("connect to unix:%s failed, cause:[%s]!", path, strerror(errno));
+		// close
+		if (s != ANET_ERR) {
+			ez_net_close_socket(s);
+			s = ANET_ERR;
+		}
+	}
+
+end:
+	return s;
+}
+
+int ez_net_unix_connect(const char *path)
+{
+	return ez_net_unix_connect_ex(path, ANET_CONNECT_NONE);
+}
+
+int ez_net_unix_connect_non_block(const char *path)
+{
+	return ez_net_unix_connect_ex(path, ANET_CONNECT_NONBLOCK);
+}
+
 static int ez_net_tcp_connect_ex(const char *addr, int port, int flags)
 {
 	int s = ANET_ERR, rv;

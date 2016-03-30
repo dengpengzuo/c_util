@@ -12,16 +12,25 @@ const char * socket_protocol_name(int sp);
 /* create server */
 int ez_net_tcp_server(int port, char *bindaddr, int backlog);
 int ez_net_tcp6_server(int port, char *bindaddr, int backlog);
+int ez_net_unix_server(int port, char *path, int backlog);
 
 /* 标准的accept模式 */
 #define ANET_EMEN_FILE    -ENFILE
+
+int ez_net_unix_accept(int fd);
+
+int ez_net_tcp_accept(int fd);
+
 int ez_net_tcp_accept2(int fd, char *ip, size_t ip_len, int *port);
-#define ez_net_tcp_accept(fd)                   (ez_net_tcp_accept2(fd, NULL, 0, NULL))
 
 int ez_net_close_socket(int s);
 
 /* create client */
+int ez_net_unix_connect(const char *path);
+int ez_net_unix_connect_non_block(const char *path);
+
 int ez_net_tcp_connect(const char *addr, int port);
+
 int ez_net_tcp_connect_non_block(const char *addr, int port);
 
 /* NonBlock net_read & net_write
