@@ -165,7 +165,7 @@ void accept_handler(ezEventLoop *eventLoop, int s, void *clientData, int mask) {
     EZ_NOTUSED(clientData);
     EZ_NOTUSED(mask);
 
-    int c = ez_net_tcp_accept(s);
+    int c = ez_net_unix_accept(s);
     if (c < ANET_OK) {
         return;
     }
@@ -194,7 +194,7 @@ void accept_handler(ezEventLoop *eventLoop, int s, void *clientData, int mask) {
 
     ez_net_set_non_block(client->fd);
     ez_net_tcp_enable_nodelay(client->fd);
-    ez_net_tcp_keepalive(client->fd, 120);
+    ez_net_tcp_keepalive(client->fd, 300);
 
     if (ez_create_file_event(worker->w_event, client->fd, AE_READABLE, read_client_handler, client) == AE_ERR) {
         log_error("server add new client %d(AE_READABLE) failed!", worker->id, client->fd);
@@ -303,6 +303,7 @@ void wait_and_stop_workers() {
 }
 
 int main(int argc, char **argv) {
+    char *addr = "/tmp/test.socket";
     int port = 9090;
     EZ_NOTUSED(argc);
     EZ_NOTUSED(argv);
@@ -310,18 +311,20 @@ int main(int argc, char **argv) {
     cust_signal_init();
     log_init(LOG_INFO, NULL);
 
-    int s = ez_net_tcp_server(port, "0.0.0.0", 1024);    // 监听的SRC := 0.0.0.0
-    log_info("server %d bind %s:%d wait client ...", s, "0.0.0.0", port);
+    int s = ez_net_unix_server(addr, 1024);    // 监听的SRC := 0.0.0.0
+    if (s > 0) {
+        log_info("server %d bind %s:%d wait client ...", s, addr, port);
 
-    init_boss();
-    init_workers();
+        init_boss();
+        init_workers();
 
-    init_server(s);
+        init_server(s);
 
-    wait_and_stop_boss();
-    wait_and_stop_workers();
+        wait_and_stop_boss();
+        wait_and_stop_workers();
 
-    ez_net_close_socket(s);
+        ez_net_close_socket(s);
+    }
 
     log_release();
     return 0;

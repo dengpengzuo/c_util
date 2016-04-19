@@ -129,7 +129,7 @@ static int _ez_net_tcp_server(int port, char *bindaddr, int af, int backlog)
 	return s;
 }
 
-int ez_net_unix_server(int port, char *path, int backlog)
+int ez_net_unix_server(char *path, int backlog)
 {
 	int s ;
 	struct sockaddr_un sa;
@@ -470,9 +470,9 @@ int ez_net_tcp_keepalive(int fd, int interval)
 	}
 #ifdef __linux__
     // linux是在空闲7200秒后，进行最大9次发送控测报文，每次间隔 75 秒。
-    // net.ipv4.tcpkeepalivetime = 7200
-    // net.ipv4.tcpkeepaliveprobes = 9
-    // net.ipv4.tcpkeepaliveintvl = 75
+    // net.ipv4.tcpkeepalivetime = 7200   Sokcet.TCP_KEEPIDLE
+    // net.ipv4.tcpkeepaliveprobes = 9    Sokcet.TCP_KEEPCNT
+    // net.ipv4.tcpkeepaliveintvl = 75    Socket.TCP_KEEPINTVL
 	if (interval > 0) {
 		/* Default settings are more or less garbage, with the keepalive time
 		 * set to 7200 by default on Linux. Modify settings to make the feature

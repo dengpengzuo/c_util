@@ -12,7 +12,7 @@ const char * socket_protocol_name(int sp);
 /* create server */
 int ez_net_tcp_server(int port, char *bindaddr, int backlog);
 int ez_net_tcp6_server(int port, char *bindaddr, int backlog);
-int ez_net_unix_server(int port, char *path, int backlog);
+int ez_net_unix_server(char *path, int backlog);
 
 /* 标准的accept模式 */
 #define ANET_EMEN_FILE    -ENFILE
