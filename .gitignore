@@ -7,6 +7,9 @@ cscope.*
 
 # CLion project files 
 .idea/**
+bin
+lib
+build
 
 # Libraries
 *.lib

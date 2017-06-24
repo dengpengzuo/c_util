@@ -3,24 +3,17 @@
 #include <stdlib.h>
 
 #ifdef USE_JEMALLOC
-
+// apt install libjemalloc-dev
 #include <jemalloc/jemalloc.h>
-#define __malloc_size(p)      je_malloc_usable_size(p)
-#define __malloc(size)        je_malloc(size)
-#define __calloc(count,size)  je_calloc(count,size)
-#define __realloc(ptr,size)   je_realloc(ptr,size)
-#define __free(ptr)           je_free(ptr)
-
 #else
-
 #include <malloc.h>
+#endif
+
 #define __malloc_size(p)      malloc_usable_size(p)
 #define __malloc(size)        malloc(size)
 #define __calloc(count,size)  calloc(count,size)
 #define __realloc(ptr,size)   realloc(ptr,size)
 #define __free(ptr)           free(ptr)
-
-#endif
 
 #include "ez_macro.h"
 #include "ez_atomic.h"
