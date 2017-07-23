@@ -10,17 +10,17 @@
 #include "ez_log.h"
 #include "ez_util.h"
 
-int64_t ez_cur_milliseconds()
-{
-	struct timeval tv;
-	int64_t milliseconds = 0;
-	gettimeofday(&tv, NULL);
+int64_t ustime(void) {
+  struct timeval tv;
+  int64_t ust;
 
-	milliseconds = (int64_t) (tv.tv_sec * 1000L);
-	milliseconds += tv.tv_usec / 1000L;
-
-	return milliseconds;
+  gettimeofday(&tv, NULL);
+  ust = ((int64_t)tv.tv_sec) * 1000000;
+  ust += tv.tv_usec;
+  return ust;
 }
+
+int64_t mstime(void) { return ustime() / 1000; }
 
 void ez_localtime_r(const time_t * _time_t, struct tm *_tm)
 {

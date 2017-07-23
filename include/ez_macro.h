@@ -17,6 +17,7 @@
  * Make data 'd' or pointer 'p', n-byte aligned, where n is a power of 2
  */
 #define EZ_ALIGNMENT           sizeof(uintptr_t)    /* platform word */
+// 转换为uintptr_t的整数倍.
 #define EZ_ALIGN(d)            (ez_align_to(d, EZ_MARK(EZ_ALIGNMENT)))
 static inline size_t ez_align_to(size_t d, size_t a) {
     return (size_t)(d + a) & ~a;

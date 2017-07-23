@@ -292,7 +292,7 @@ int64_t ez_create_time_event(ezEventLoop * eventLoop, int64_t period, ezTimeProc
 	te->timeProc = proc;
 	te->clientData = clientData;
 	te->period = period;
-	te->when_ms = ez_cur_milliseconds() + te->period;
+	te->when_ms = mstime() + te->period;
 	log_debug("create time event [id:%li, when_ms:%li].", id, te->when_ms);
 
 	insert_time_event_list(eventLoop->time_events.next, &eventLoop->time_events, te);
@@ -354,7 +354,7 @@ static int process_time_events(ezEventLoop * eventLoop)
 
 	LIST_FOR(&(eventLoop->time_events), tmp){
 		te = cast_to_time_event(tmp);
-		now_ms = ez_cur_milliseconds();
+		now_ms = mstime();
 
 		if (all_fired || now_ms >= te->when_ms) {
 			list_del(tmp);
@@ -432,7 +432,7 @@ static int ez_process_events(ezEventLoop * eventLoop, int flags)
 			}
 		}
 		if (shortest != NULL) {
-			tvp = (int) (shortest->when_ms - ez_cur_milliseconds());
+			tvp = (int) (shortest->when_ms - mstime());
 			if (tvp < 0) tvp = 100;
 		} else {
 			tvp = -1;	// wait for block
