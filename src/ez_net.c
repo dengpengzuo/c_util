@@ -403,7 +403,11 @@ int ez_net_set_recv_buf_size(int fd, int bufsize)
 int ez_net_set_closexec(int fd)
 {
 	int flags;
-
+#ifdef USE_IOCTL
+	flags = 1;
+ 	if(ioctl(fd, FIONBIO, &flags) == -1)
+		return ANET_ERR;
+#else
 	/* Set the socket non-blocking.
 	 * Note that fcntl(2) for F_GETFL and F_SETFL can't be
 	 * interrupted by a signal. */
@@ -415,13 +419,18 @@ int ez_net_set_closexec(int fd)
 		log_error("fcntl(F_SETFL,FD_CLOEXEC): %s", strerror(errno));
 		return ANET_ERR;
 	}
+#endif
 	return ANET_OK;
 }
 
 int ez_net_set_non_block(int fd)
 {
 	int flags;
-
+#ifdef USE_IOCTL
+	flags = 0;
+ 	if(ioctl(fd, FIONBIO, &flags) == -1)
+		return ANET_ERR;
+#else
 	/* Set the socket non-blocking.
 	 * Note that fcntl(2) for F_GETFL and F_SETFL can't be
 	 * interrupted by a signal. */
@@ -433,6 +442,7 @@ int ez_net_set_non_block(int fd)
 		log_error("fcntl(F_SETFL,O_NONBLOCK): %s", strerror(errno));
 		return ANET_ERR;
 	}
+#endif
 	return ANET_OK;
 }
 
