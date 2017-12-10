@@ -11,25 +11,24 @@
 #include <ez_log.h>
 #include <ez_event.h>
 #include <ez_list.h>
-#include <ez_util.h>
 
 typedef struct ezWorker_t {
     int32_t id;
     pthread_t thid;
     ezEventLoop *w_event;
 
-    list_head clients;           // list<connect>
-    pthread_mutex_t client_lock; // list<client_lock
-
     pthread_mutex_t lock;
     pthread_cond_t cond;
+
+    list_head clients;           // list<connect>
+    pthread_mutex_t client_lock; // list<client_lock
 } ezWorker;
 
 typedef struct connect_t {
     list_head list_node;
     ezWorker *worker;  /* 所属的worker */
     int fd;            /* socket fd */
-    #define CONNECT_READ_BUF_SIZE 8
+#define CONNECT_READ_BUF_SIZE 8
     uint8_t data[CONNECT_READ_BUF_SIZE];      /* read buffer */
 } connect;
 
@@ -47,7 +46,6 @@ struct ez_signal {
     void (*cust_handler)(struct ez_signal *sig);
 }; // 字节对齐, sizeof(struct ez_signal)=32 bytes.
 
-static ezWorker boss;
 static ezWorker workers[4];
 
 static void dispatch_signal_handler(int signo);
@@ -65,7 +63,7 @@ static struct ez_signal cust_signals[] = {
 
 static void cust_signal_handler(struct ez_signal *sig) {
     EZ_NOTUSED(sig);
-    ez_stop_event_loop(boss.w_event);
+    ez_stop_event_loop(workers[0].w_event);
 }
 
 static void dispatch_signal_handler(int signo) {
@@ -105,17 +103,16 @@ static void cust_signal_init(void) {
     }
 }
 
-static inline void worker_lock(ezWorker * worker){
+static inline void worker_lock(ezWorker *worker) {
     pthread_mutex_lock(&(worker->client_lock));
 }
 
-static inline void worker_unlock(ezWorker * worker) {
+static inline void worker_unlock(ezWorker *worker) {
     pthread_mutex_unlock(&(worker->client_lock));
 }
 
 void *run_event_thread_proc(void *t) {
     ezWorker *worker = (ezWorker *) t;
-    //worker->thid = pthread_self();
     ez_run_event_loop(worker->w_event);
 
     pthread_mutex_lock(&(worker->lock));
@@ -127,7 +124,7 @@ void *run_event_thread_proc(void *t) {
 }
 
 void read_client_handler(ezEventLoop *eventLoop, int cfd, void *clientData, int mask) {
-    connect * c = (connect *) clientData;
+    connect *c = (connect *) clientData;
     int r = 0;
     ssize_t nread = 0;
 
@@ -200,15 +197,16 @@ void accept_handler(ezEventLoop *eventLoop, int s, void *clientData, int mask) {
 }
 
 void init_boss() {
-    boss.id = 0;
-    boss.w_event = ez_create_event_loop(128);
-    pthread_mutex_init(&(boss.lock), NULL);
-    pthread_cond_init(&(boss.cond), NULL);
+    ezWorker *boss = &workers[0];
+    boss->id = 0;
+    boss->w_event = ez_create_event_loop(128);
+    pthread_mutex_init(&(boss->lock), NULL);
+    pthread_cond_init(&(boss->cond), NULL);
 }
 
 void init_workers() {
-    for (int i = 0; i < EZ_NELEMS(workers); ++i) {
-        workers[i].id = i + 1;
+    for (int i = 1; i < EZ_NELEMS(workers); ++i) {
+        workers[i].id = i;
         workers[i].w_event = ez_create_event_loop(1024);
 
         init_list_head(&workers[i].clients);
@@ -220,31 +218,33 @@ void init_workers() {
 }
 
 void init_server(int s) {
-    int i;
+    ezWorker *boss = &(workers[0]);
     // 将s加入boss接收clent连接.
-    ez_create_file_event(boss.w_event, s, AE_READABLE, accept_handler, NULL);
+    ez_create_file_event(boss->w_event, s, AE_READABLE, accept_handler, NULL);
     // 生成boss线程.
-    pthread_create(&boss.thid, NULL, run_event_thread_proc, &boss);
+    pthread_create(&boss->thid, NULL, run_event_thread_proc, boss);
 
     // 生成worker线程
-    for (i = 0; i < EZ_NELEMS(workers); ++i) {
+    for (int i = 1; i < EZ_NELEMS(workers); ++i) {
         pthread_create(&workers[i].thid, NULL, run_event_thread_proc, &workers[i]);
     }
 }
 
 void wait_and_stop_boss() {
-    log_info("main > wait boss event loop ...");
-    pthread_mutex_lock(&boss.lock);                     // 先锁定
-    pthread_cond_wait(&boss.cond, &boss.lock);          // wait cust_signal_handler 引发 run_event_thread_proc 线程退出消息.
-    pthread_mutex_unlock(&boss.lock);
+    ezWorker *boss = &workers[0];
+    log_info("main > wait worker[0] event loop ...");
+    pthread_mutex_lock(&boss->lock);                     // 先锁定
+    pthread_cond_wait(&boss->cond, &boss->lock);         // wait cust_signal_handler 引发 run_event_thread_proc 线程退出消息.
+    pthread_mutex_unlock(&boss->lock);
 
-    log_info("main > begin stop boss event loop ...");
-    pthread_join(boss.thid, NULL);
-    log_info("main > delete boss event loop ...");
-    ez_delete_event_loop(boss.w_event);
+    // boss thread 是被其他操作系统用线号通知.
+    log_info("main > begin stop worker[0] event loop ...");
+    pthread_join(boss->thid, NULL);
 
-    pthread_mutex_destroy(&boss.lock);
-    pthread_cond_destroy(&boss.cond);
+    log_info("main > delete worker[0] event loop ...");
+    ez_delete_event_loop(boss->w_event);
+    pthread_mutex_destroy(&boss->lock);
+    pthread_cond_destroy(&boss->cond);
 }
 
 void free_connect(list_head *entry) {
@@ -253,11 +253,11 @@ void free_connect(list_head *entry) {
 }
 
 void wait_and_stop_workers() {
-    for (int i = 0; i < EZ_NELEMS(workers); ++i) {
+    for (int i = 1; i < EZ_NELEMS(workers); ++i) {
         log_info("main > wait worker[%d] event loop break ...", workers[i].id);
 
         pthread_mutex_lock(&workers[i].lock);                  // 先锁定
-        ez_stop_event_loop(workers[i].w_event);                // 发送退出消息.
+        ez_stop_event_loop(workers[i].w_event);                // 主线程通知退出.
         pthread_cond_wait(&workers[i].cond, &workers[i].lock); // 注意:pthread_con_wait 必须先有waiter，其他线程的cond_signal才会收得到.
         pthread_mutex_unlock(&workers[i].lock);
 
