@@ -17,7 +17,9 @@ typedef struct ezWorker_t {
     int32_t id;
     pthread_t thid;
     ezEventLoop *w_event;
-    list_head clients;
+
+    list_head clients;           // list<connect>
+    pthread_mutex_t client_lock; // list<client_lock
 
     pthread_mutex_t lock;
     pthread_cond_t cond;
@@ -25,10 +27,9 @@ typedef struct ezWorker_t {
 
 typedef struct connect_t {
     list_head list_node;
-    ezWorker *worker;
-    /* worker index */
-    int fd;           /* socket fd */
-#define CONNECT_READ_BUF_SIZE 8
+    ezWorker *worker;  /* 所属的worker */
+    int fd;            /* socket fd */
+    #define CONNECT_READ_BUF_SIZE 8
     uint8_t data[CONNECT_READ_BUF_SIZE];      /* read buffer */
 } connect;
 
@@ -104,6 +105,14 @@ static void cust_signal_init(void) {
     }
 }
 
+static inline void worker_lock(ezWorker * worker){
+    pthread_mutex_lock(&(worker->client_lock));
+}
+
+static inline void worker_unlock(ezWorker * worker) {
+    pthread_mutex_unlock(&(worker->client_lock));
+}
+
 void *run_event_thread_proc(void *t) {
     ezWorker *worker = (ezWorker *) t;
     //worker->thid = pthread_self();
@@ -117,34 +126,35 @@ void *run_event_thread_proc(void *t) {
     return NULL;
 }
 
-void read_client_handler(ezEventLoop *eventLoop, int c, void *clientData, int mask) {
-    connect *client = (connect *) clientData;
+void read_client_handler(ezEventLoop *eventLoop, int cfd, void *clientData, int mask) {
+    connect * c = (connect *) clientData;
     int r = 0;
     ssize_t nread = 0;
 
     if ((mask & AE_READABLE) == AE_READABLE) {
         // 没有空间[申请]
-        r = ez_net_read(client->fd, (char *) &(client->data[0]), CONNECT_READ_BUF_SIZE, &nread);
+        r = ez_net_read(c->fd, (char *) &(c->data[0]), CONNECT_READ_BUF_SIZE, &nread);
 
         if (r == ANET_EAGAIN && nread == 0) {
             return; // 读不出来或者数据没有来，下次继续读
         } else if (r == ANET_OK && nread == 0) {
             // ez_event 会在 client 端close也引发 AE_READABLE 事件，
             // 这时读取这个socket的结果就是读取0字节内容。
-            log_info("client [%d] > 已经关闭，reomve this from workers[%d]", client->fd, client->worker->id);
+            log_info("client [%d] > 已经关闭，reomve this from workers[%d]", c->fd, c->worker->id);
 
-            ez_delete_file_event(/*eventLoop*/client->worker->w_event, client->fd, AE_READABLE);
-            ez_net_close_socket(client->fd);
-            list_del(&client->list_node);
-            ez_free(client);
+            ez_delete_file_event(/*eventLoop*/c->worker->w_event, c->fd, AE_READABLE);
+            ez_net_close_socket(c->fd);
+            worker_lock(c->worker);
+            list_del(&c->list_node);
+            worker_unlock(c->worker);
+            ez_free(c);
             return;
         } else if (r == ANET_ERR) {
-            log_info("client [%d] > read error:[%d,%s]!", client->fd, errno, strerror(errno));
+            log_info("client [%d] > read error:[%d,%s]!", c->fd, errno, strerror(errno));
         }
         if (nread > 0) {
             // 读取了 nread.
-            log_hexdump(LOG_INFO, client->data, CONNECT_READ_BUF_SIZE, "client [%d] > read data %d bytes!", client->fd,
-                        nread);
+            log_hexdump(LOG_INFO, c->data, CONNECT_READ_BUF_SIZE, "client [%d] > read data %d bytes!", c->fd, nread);
         }
     }
 }
@@ -183,7 +193,10 @@ void accept_handler(ezEventLoop *eventLoop, int s, void *clientData, int mask) {
     }
 
     log_info("server add new client [fd:%d] to worker [%d].", client->fd, worker->id);
+    // boss 线程锁定 worker
+    worker_lock(worker);
     list_add(&client->list_node, &worker->clients);
+    worker_unlock(worker);
 }
 
 void init_boss() {
@@ -193,29 +206,14 @@ void init_boss() {
     pthread_cond_init(&(boss.cond), NULL);
 }
 
-int time_out_handler(ezEventLoop *eventLoop, int64_t timeId, void *clientData) {
-    connect *con = NULL;
-    ezWorker *worker = (ezWorker *) clientData;
-    log_info("@timeId:%li worker [%d] scan clients ...", timeId, worker->id);
-
-    pthread_mutex_lock(&worker->lock);
-    LIST_FOR(&(worker->clients), pos) {
-        con = cast_to_connect(pos);
-        log_info("@timeId:%li worker [%d] scan client [fd:%d] ...", timeId, worker->id, con->fd);
-        // TODO:其他事项
-    }
-    pthread_mutex_unlock(&worker->lock);
-
-    log_info("@timeId:%li worker [%d] scan clients ok!", timeId, worker->id);
-    return AE_TIMER_NEXT;
-}
-
 void init_workers() {
     for (int i = 0; i < EZ_NELEMS(workers); ++i) {
         workers[i].id = i + 1;
         workers[i].w_event = ez_create_event_loop(1024);
 
         init_list_head(&workers[i].clients);
+        pthread_mutex_init(&(workers[i].client_lock), NULL);
+
         pthread_mutex_init(&(workers[i].lock), NULL);
         pthread_cond_init(&(workers[i].cond), NULL);
     }
@@ -230,9 +228,6 @@ void init_server(int s) {
 
     // 生成worker线程
     for (i = 0; i < EZ_NELEMS(workers); ++i) {
-        // add one time out event.
-        ez_create_time_event(workers[i].w_event, 1000 * 60, time_out_handler, &workers[i]);
-
         pthread_create(&workers[i].thid, NULL, run_event_thread_proc, &workers[i]);
     }
 }
