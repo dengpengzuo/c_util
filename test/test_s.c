@@ -273,7 +273,7 @@ void wait_and_stop_workers() {
 }
 
 int main(int argc, char **argv) {
-    char *addr = "/tmp/test.socket";
+    char *addr = NULL;
     int port = 9090;
     EZ_NOTUSED(argc);
     EZ_NOTUSED(argv);
@@ -281,7 +281,7 @@ int main(int argc, char **argv) {
     cust_signal_init();
     log_init(LOG_INFO, NULL);
 
-    int s = ez_net_unix_server(addr, 1024);    // 监听的SRC := 0.0.0.0
+    int s = ez_net_tcp_server(port, addr, 1024);    // 监听的SRC := 0.0.0.0
     if (s > 0) {
         log_info("server %d bind %s:%d wait client ...", s, addr, port);
 
