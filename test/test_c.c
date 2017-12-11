@@ -100,7 +100,7 @@ int wait_quit(int c) {
 
     while (1) {
         log_info("\ncmd:>");
-        r = read_char_from_stdin(cmd, 32);
+        r = read_char_from_stdin(cmd, 16);
         if (r <= 0)
             continue;
         else if (strcmp(cmd, "help") == 0) {
@@ -143,7 +143,7 @@ int wait_quit(int c) {
 }
 
 int main(int argc, char **argv) {
-    char *svr_addr = "/tmp/test.socket";
+    char *svr_addr = "localhost";
     int   svr_port = 9090;
     char  socket_name[256];
     int   socket_port ;
@@ -156,7 +156,7 @@ int main(int argc, char **argv) {
 
     log_init(LOG_VVERB, NULL);
 
-    int c = ez_net_unix_connect(svr_addr/*, svr_port*/);
+    int c = ez_net_tcp_connect(svr_addr, svr_port);
     if (c > 0) {
         ez_net_socket_name(c, socket_name, 255, &socket_port);
         socket_name[255] = '\0';
@@ -164,6 +164,7 @@ int main(int argc, char **argv) {
 
         ez_net_set_non_block(c);
         wait_quit(c);
+        ez_net_close_socket(c);
     }
 
     log_release();
