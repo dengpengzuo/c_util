@@ -1,7 +1,7 @@
 add_definitions(-D_GNU_SOURCES -DUSE_JEMALLOC)
 
 include_directories(
-        ${CMAKE_CURRENT_SOURCE_DIR}/../include
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 set(SRC_LIST

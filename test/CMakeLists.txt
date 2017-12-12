@@ -1,7 +1,7 @@
 add_definitions(-D_GNU_SOURCES)
 
 include_directories(
-    ${CMAKE_CURRENT_SOURCE_DIR}/../include
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src
 )
 
 # build exe

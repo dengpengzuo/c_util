@@ -12,31 +12,31 @@
 #include <ez_event.h>
 #include <ez_list.h>
 
-typedef struct ezWorker_t {
+typedef struct worker_s {
     int32_t id;
     pthread_t thid;
     ezEventLoop *w_event;
 
     pthread_mutex_t lock;
     pthread_cond_t cond;
-} ezWorker;
+} worker_t;
 
-typedef struct connectList_t {
+typedef struct connect_list_s {
     list_head clients;           // list<connect>
     pthread_mutex_t client_lock; // client_lock
-} connectList;
+} connect_list_t;
 
-typedef struct workerConnect_t {
+typedef struct worker_connect_s {
     list_head list_node;
-    ezWorker *worker;  /* 所属的worker */
+    worker_t *worker;  /* 所属的worker */
     int fd;            /* socket fd */
 
     #define CONNECT_READ_BUF_SIZE 8
     uint8_t data[CONNECT_READ_BUF_SIZE];      /* read buffer */
-} workerConnect;
+} worker_connect_t;
 
-static inline workerConnect *cast_to_connect(list_head *entry) {
-    return EZ_CONTAINER_OF(entry, workerConnect, list_node);
+static inline worker_connect_t *cast_to_connect(list_head *entry) {
+    return EZ_CONTAINER_OF(entry, worker_connect_t, list_node);
 }
 
 struct ez_signal {
@@ -50,19 +50,19 @@ struct ez_signal {
 }; // 字节对齐, sizeof(struct ez_signal)=32 bytes.
 
 #define WORKER_SIZE   3
-static ezWorker     _boss;
-static ezWorker     _workers[WORKER_SIZE];
-static connectList  _worker_clients[WORKER_SIZE];
+static worker_t     _boss;
+static worker_t     _workers[WORKER_SIZE];
+static connect_list_t  _worker_clients[WORKER_SIZE];
 
 static inline uint32_t _worker_index(int fd) {
     return (uint32_t) (fd & (EZ_MARK(EZ_NELEMS(_workers))));
 }
 
-static inline void _connect_list_lock(connectList *wc) {
+static inline void _connect_list_lock(connect_list_t *wc) {
     pthread_mutex_lock(&(wc->client_lock));
 }
 
-static inline void _connect_list_unlock(connectList *worker) {
+static inline void _connect_list_unlock(connect_list_t *worker) {
     pthread_mutex_unlock(&(worker->client_lock));
 }
 
@@ -122,7 +122,7 @@ static void cust_signal_init(void) {
 }
 
 void *run_event_thread_proc(void *t) {
-    ezWorker *worker = (ezWorker *) t;
+    worker_t *worker = (worker_t *) t;
     ez_run_event_loop(worker->w_event);
 
     pthread_mutex_lock(&(worker->lock));
@@ -134,7 +134,7 @@ void *run_event_thread_proc(void *t) {
 }
 
 void read_client_handler(ezEventLoop *eventLoop, int cfd, void *clientData, int mask) {
-    workerConnect *c = (workerConnect *) clientData;
+    worker_connect_t *c = (worker_connect_t *) clientData;
     uint32_t wid = _worker_index(c->fd);
     int r = 0;
     ssize_t nread = 0;
@@ -179,9 +179,9 @@ void accept_handler(ezEventLoop *eventLoop, int s, void *clientData, int mask) {
         return;
     }
     uint32_t wid = _worker_index(c);
-    ezWorker *worker = &_workers[wid];
+    worker_t *worker = &_workers[wid];
 
-    workerConnect *client = ez_malloc(sizeof(workerConnect));
+    worker_connect_t *client = ez_malloc(sizeof(worker_connect_t));
     if (client == NULL) {
         log_error("server malloc connect faired, force close [%d].", c);
         ez_net_close_socket(c);
@@ -210,7 +210,7 @@ void accept_handler(ezEventLoop *eventLoop, int s, void *clientData, int mask) {
 }
 
 void init_boss() {
-    ezWorker *boss = &_boss;
+    worker_t *boss = &_boss;
     boss->id = 0;
     boss->w_event = ez_create_event_loop(128);
     pthread_mutex_init(&(boss->lock), NULL);
@@ -219,8 +219,8 @@ void init_boss() {
 
 void init_workers() {
     for (int i = 0; i < EZ_NELEMS(_workers); ++i) {
-        ezWorker * w = &_workers[i];
-        connectList * cl = &_worker_clients[i];
+        worker_t * w = &_workers[i];
+        connect_list_t * cl = &_worker_clients[i];
 
         w->id = (i+1);
         w->w_event = ez_create_event_loop(1024);
@@ -233,7 +233,7 @@ void init_workers() {
 }
 
 void init_server(int s) {
-    ezWorker *boss = &_boss;
+    worker_t *boss = &_boss;
     // 将s加入boss接收clent连接.
     ez_create_file_event(boss->w_event, s, AE_READABLE, accept_handler, NULL);
     // 生成boss线程.
@@ -246,7 +246,7 @@ void init_server(int s) {
 }
 
 void wait_and_stop_boss() {
-    ezWorker *boss = &_boss;
+    worker_t *boss = &_boss;
     log_info("main > wait boss event loop ...");
     pthread_mutex_lock(&boss->lock);                     // 先锁定
     pthread_cond_wait(&boss->cond, &boss->lock);         // wait cust_signal_handler 引发 run_event_thread_proc 线程退出消息.
@@ -263,7 +263,7 @@ void wait_and_stop_boss() {
 }
 
 void free_connect(list_head *entry) {
-    workerConnect *con = cast_to_connect(entry);
+    worker_connect_t *con = cast_to_connect(entry);
     ez_free(con);
 }
 
