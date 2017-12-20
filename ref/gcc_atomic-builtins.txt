@@ -1,14 +1,19 @@
-5.44 Built-in functions for atomic memory access
 
-The following builtins are intended to be compatible with those described in the Intel Itanium Processor-specific Application Binary Interface, section 7.4. As such, they depart from the normal GCC practice of using the “__builtin_” prefix, and further that they are overloaded such that they work on multiple types.
+https://gcc.gnu.org/onlinedocs/gcc-6.4.0
+=========
+@6.51 Legacy __sync Built-in Functions for Atomic Memory Access
 
-The definition given in the Intel documentation allows only for the use of the types int, long, long long as well as their unsigned counterparts. GCC will allow any integral scalar or pointer type that is 1, 2, 4 or 8 bytes in length.
+The following built-in functions are intended to be compatible with those described in the Intel Itanium Processor-specific Application Binary Interface, section 7.4. As such, they depart from normal GCC practice by not using the ‘__builtin_’ prefix and also by being overloaded so that they work on multiple types.
 
-Not all operations are supported by all target processors. If a particular operation cannot be implemented on the target processor, a warning will be generated and a call an external function will be generated. The external function will carry the same name as the builtin, with an additional suffix `_n' where n is the size of the data type.
+The definition given in the Intel documentation allows only for the use of the types int, long, long long or their unsigned counterparts. GCC allows any scalar type that is 1, 2, 4 or 8 bytes in size other than the C type _Bool or the C++ type bool. Operations on pointer arguments are performed as if the operands were of the uintptr_t type. That is, they are not scaled by the size of the type to which the pointer points.
 
-In most cases, these builtins are considered a full barrier. That is, no memory operand will be moved across the operation, either forward or backward. Further, instructions will be issued as necessary to prevent the processor from speculating loads across the operation and from queuing stores after the operation.
+These functions are implemented in terms of the ‘__atomic’ builtins (see __atomic Builtins). They should not be used for new code which should use the ‘__atomic’ builtins instead.
 
-All of the routines are are described in the Intel documentation to take “an optional list of variables protected by the memory barrier”. It's not clear what is meant by that; it could mean that only the following variables are protected, or it could mean that these variables should in addition be protected. At present GCC ignores this list and protects all variables which are globally accessible. If in the future we make some use of this list, an empty list will continue to mean all globally accessible variables.
+Not all operations are supported by all target processors. If a particular operation cannot be implemented on the target processor, a warning is generated and a call to an external function is generated. The external function carries the same name as the built-in version, with an additional suffix ‘_n’ where n is the size of the data type.
+
+In most cases, these built-in functions are considered a full barrier. That is, no memory operand is moved across the operation, either forward or backward. Further, instructions are issued as necessary to prevent the processor from speculating loads across the operation and from queuing stores after the operation.
+
+All of the routines are described in the Intel documentation to take “an optional list of variables protected by the memory barrier”. It’s not clear what is meant by that; it could mean that only the listed variables are protected, or it could mean a list of additional variables to be protected. The list is ignored by GCC which treats it as empty. GCC interprets an empty list as meaning that all globally accessible variables should be protected.
 
 type __sync_fetch_and_add (type *ptr, type value, ...)
 type __sync_fetch_and_sub (type *ptr, type value, ...)
@@ -16,10 +21,13 @@ type __sync_fetch_and_or (type *ptr, type value, ...)
 type __sync_fetch_and_and (type *ptr, type value, ...)
 type __sync_fetch_and_xor (type *ptr, type value, ...)
 type __sync_fetch_and_nand (type *ptr, type value, ...)
-These builtins perform the operation suggested by the name, and returns the value that had previously been in memory. That is,
-          { tmp = *ptr; *ptr op= value; return tmp; }
-          { tmp = *ptr; *ptr = ~tmp & value; return tmp; }   // nand
-     
+These built-in functions perform the operation suggested by the name, and returns the value that had previously been in memory. That is, operations on integer operands have the following semantics. Operations on pointer arguments are performed as if the operands were of the uintptr_t type. That is, they are not scaled by the size of the type to which the pointer points.
+
+{ tmp = *ptr; *ptr op= value; return tmp; }
+{ tmp = *ptr; *ptr = ~(tmp & value); return tmp; }   // nand
+The object pointed to by the first argument must be of integer or pointer type. It must not be a Boolean type.
+
+Note: GCC 4.4 and later implement __sync_fetch_and_nand as *ptr = ~(tmp & value) instead of *ptr = ~tmp & value.
 
 type __sync_add_and_fetch (type *ptr, type value, ...)
 type __sync_sub_and_fetch (type *ptr, type value, ...)
@@ -27,24 +35,165 @@ type __sync_or_and_fetch (type *ptr, type value, ...)
 type __sync_and_and_fetch (type *ptr, type value, ...)
 type __sync_xor_and_fetch (type *ptr, type value, ...)
 type __sync_nand_and_fetch (type *ptr, type value, ...)
-These builtins perform the operation suggested by the name, and return the new value. That is,
-          { *ptr op= value; return *ptr; }
-          { *ptr = ~*ptr & value; return *ptr; }   // nand
-     
+These built-in functions perform the operation suggested by the name, and return the new value. That is, operations on integer operands have the following semantics. Operations on pointer operands are performed as if the operand’s type were uintptr_t.
 
-bool __sync_bool_compare_and_swap (type *ptr, type oldval type newval, ...)
-type __sync_val_compare_and_swap (type *ptr, type oldval type newval, ...)
-These builtins perform an atomic compare and swap. That is, if the current value of *ptr is oldval, then write newval into *ptr.
-The “bool” version returns true if the comparison is successful and newval was written. The “val” version returns the contents of *ptr before the operation. 
+{ *ptr op= value; return *ptr; }
+{ *ptr = ~(*ptr & value); return *ptr; }   // nand
+The same constraints on arguments apply as for the corresponding __sync_op_and_fetch built-in functions.
+
+Note: GCC 4.4 and later implement __sync_nand_and_fetch as *ptr = ~(*ptr & value) instead of *ptr = ~*ptr & value.
+
+bool __sync_bool_compare_and_swap (type *ptr, type oldval, type newval, ...)
+type __sync_val_compare_and_swap (type *ptr, type oldval, type newval, ...)
+These built-in functions perform an atomic compare and swap. That is, if the current value of *ptr is oldval, then write newval into *ptr.
+
+The “bool” version returns true if the comparison is successful and newval is written. The “val” version returns the contents of *ptr before the operation.
 
 __sync_synchronize (...)
-This builtin issues a full memory barrier. 
+This built-in function issues a full memory barrier.
+
 type __sync_lock_test_and_set (type *ptr, type value, ...)
-This builtin, as described by Intel, is not a traditional test-and-set operation, but rather an atomic exchange operation. It writes value into *ptr, and returns the previous contents of *ptr.
+This built-in function, as described by Intel, is not a traditional test-and-set operation, but rather an atomic exchange operation. It writes value into *ptr, and returns the previous contents of *ptr.
+
 Many targets have only minimal support for such locks, and do not support a full exchange operation. In this case, a target may support reduced functionality here by which the only valid value to store is the immediate constant 1. The exact value actually stored in *ptr is implementation defined.
 
-This builtin is not a full barrier, but rather an acquire barrier. This means that references after the builtin cannot move to (or be speculated to) before the builtin, but previous memory stores may not be globally visible yet, and previous memory loads may not yet be satisfied. 
+This built-in function is not a full barrier, but rather an acquire barrier. This means that references after the operation cannot move to (or be speculated to) before the operation, but previous memory stores may not be globally visible yet, and previous memory loads may not yet be satisfied.
 
 void __sync_lock_release (type *ptr, ...)
-This builtin releases the lock acquired by __sync_lock_test_and_set. Normally this means writing the constant 0 to *ptr.
-This builtin is not a full barrier, but rather a release barrier. This means that all previous memory stores are globally visible, and all previous memory loads have been satisfied, but following memory reads are not prevented from being speculated to before the barrier.
+This built-in function releases the lock acquired by __sync_lock_test_and_set. Normally this means writing the constant 0 to *ptr.
+
+This built-in function is not a full barrier, but rather a release barrier. This means that all previous memory stores are globally visible, and all previous memory loads have been satisfied, but following memory reads are not prevented from being speculated to before the barrier.
+
+=========
+@6.52 Built-in Functions for Memory Model Aware Atomic Operations
+
+The following built-in functions approximately match the requirements for the C++11 memory model. They are all identified by being prefixed with ‘__atomic’ and most are overloaded so that they work with multiple types.
+
+These functions are intended to replace the legacy ‘__sync’ builtins. The main difference is that the memory order that is requested is a parameter to the functions. New code should always use the ‘__atomic’ builtins rather than the ‘__sync’ builtins.
+
+Note that the ‘__atomic’ builtins assume that programs will conform to the C++11 memory model. In particular, they assume that programs are free of data races. See the C++11 standard for detailed requirements.
+
+The ‘__atomic’ builtins can be used with any integral scalar or pointer type that is 1, 2, 4, or 8 bytes in length. 16-byte integral types are also allowed if ‘__int128’ (see __int128) is supported by the architecture.
+
+The four non-arithmetic functions (load, store, exchange, and compare_exchange) all have a generic version as well. This generic version works on any data type. It uses the lock-free built-in function if the specific data type size makes that possible; otherwise, an external call is left to be resolved at run time. This external call is the same format with the addition of a ‘size_t’ parameter inserted as the first parameter indicating the size of the object being pointed to. All objects must be the same size.
+
+There are 6 different memory orders that can be specified. These map to the C++11 memory orders with the same names, see the C++11 standard or the GCC wiki on atomic synchronization for detailed definitions. Individual targets may also support additional memory orders for use on specific architectures. Refer to the target documentation for details of these.
+
+An atomic operation can both constrain code motion and be mapped to hardware instructions for synchronization between threads (e.g., a fence). To which extent this happens is controlled by the memory orders, which are listed here in approximately ascending order of strength. The description of each memory order is only meant to roughly illustrate the effects and is not a specification; see the C++11 memory model for precise semantics.
+
+__ATOMIC_RELAXED
+Implies no inter-thread ordering constraints.
+
+__ATOMIC_CONSUME
+This is currently implemented using the stronger __ATOMIC_ACQUIRE memory order because of a deficiency in C++11’s semantics for memory_order_consume.
+
+__ATOMIC_ACQUIRE
+Creates an inter-thread happens-before constraint from the release (or stronger) semantic store to this acquire load. Can prevent hoisting of code to before the operation.
+
+__ATOMIC_RELEASE
+Creates an inter-thread happens-before constraint to acquire (or stronger) semantic loads that read from this release store. Can prevent sinking of code to after the operation.
+
+__ATOMIC_ACQ_REL
+Combines the effects of both __ATOMIC_ACQUIRE and __ATOMIC_RELEASE.
+
+__ATOMIC_SEQ_CST
+Enforces total ordering with all other __ATOMIC_SEQ_CST operations.
+
+Note that in the C++11 memory model, fences (e.g., ‘__atomic_thread_fence’) take effect in combination with other atomic operations on specific memory locations (e.g., atomic loads); operations on specific memory locations do not necessarily affect other operations in the same way.
+
+Target architectures are encouraged to provide their own patterns for each of the atomic built-in functions. If no target is provided, the original non-memory model set of ‘__sync’ atomic built-in functions are used, along with any required synchronization fences surrounding it in order to achieve the proper behavior. Execution in this case is subject to the same restrictions as those built-in functions.
+
+If there is no pattern or mechanism to provide a lock-free instruction sequence, a call is made to an external routine with the same parameters to be resolved at run time.
+
+When implementing patterns for these built-in functions, the memory order parameter can be ignored as long as the pattern implements the most restrictive __ATOMIC_SEQ_CST memory order. Any of the other memory orders execute correctly with this memory order but they may not execute as efficiently as they could with a more appropriate implementation of the relaxed requirements.
+
+Note that the C++11 standard allows for the memory order parameter to be determined at run time rather than at compile time. These built-in functions map any run-time value to __ATOMIC_SEQ_CST rather than invoke a runtime library call or inline a switch statement. This is standard compliant, safe, and the simplest approach for now.
+
+The memory order parameter is a signed int, but only the lower 16 bits are reserved for the memory order. The remainder of the signed int is reserved for target use and should be 0. Use of the predefined atomic values ensures proper usage.
+
+Built-in Function: type __atomic_load_n (type *ptr, int memorder)
+This built-in function implements an atomic load operation. It returns the contents of *ptr.
+
+The valid memory order variants are __ATOMIC_RELAXED, __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE, and __ATOMIC_CONSUME.
+
+Built-in Function: void __atomic_load (type *ptr, type *ret, int memorder)
+This is the generic version of an atomic load. It returns the contents of *ptr in *ret.
+
+Built-in Function: void __atomic_store_n (type *ptr, type val, int memorder)
+This built-in function implements an atomic store operation. It writes val into *ptr.
+
+The valid memory order variants are __ATOMIC_RELAXED, __ATOMIC_SEQ_CST, and __ATOMIC_RELEASE.
+
+Built-in Function: void __atomic_store (type *ptr, type *val, int memorder)
+This is the generic version of an atomic store. It stores the value of *val into *ptr.
+
+Built-in Function: type __atomic_exchange_n (type *ptr, type val, int memorder)
+This built-in function implements an atomic exchange operation. It writes val into *ptr, and returns the previous contents of *ptr.
+
+The valid memory order variants are __ATOMIC_RELAXED, __ATOMIC_SEQ_CST, __ATOMIC_ACQUIRE, __ATOMIC_RELEASE, and __ATOMIC_ACQ_REL.
+
+Built-in Function: void __atomic_exchange (type *ptr, type *val, type *ret, int memorder)
+This is the generic version of an atomic exchange. It stores the contents of *val into *ptr. The original value of *ptr is copied into *ret.
+
+Built-in Function: bool __atomic_compare_exchange_n (type *ptr, type *expected, type desired, bool weak, int success_memorder, int failure_memorder)
+This built-in function implements an atomic compare and exchange operation. This compares the contents of *ptr with the contents of *expected. If equal, the operation is a read-modify-write operation that writes desired into *ptr. If they are not equal, the operation is a read and the current contents of *ptr are written into *expected. weak is true for weak compare_exchange, which may fail spuriously, and false for the strong variation, which never fails spuriously. Many targets only offer the strong variation and ignore the parameter. When in doubt, use the strong variation.
+
+If desired is written into *ptr then true is returned and memory is affected according to the memory order specified by success_memorder. There are no restrictions on what memory order can be used here.
+
+Otherwise, false is returned and memory is affected according to failure_memorder. This memory order cannot be __ATOMIC_RELEASE nor __ATOMIC_ACQ_REL. It also cannot be a stronger order than that specified by success_memorder.
+
+Built-in Function: bool __atomic_compare_exchange (type *ptr, type *expected, type *desired, bool weak, int success_memorder, int failure_memorder)
+This built-in function implements the generic version of __atomic_compare_exchange. The function is virtually identical to __atomic_compare_exchange_n, except the desired value is also a pointer.
+
+Built-in Function: type __atomic_add_fetch (type *ptr, type val, int memorder)
+Built-in Function: type __atomic_sub_fetch (type *ptr, type val, int memorder)
+Built-in Function: type __atomic_and_fetch (type *ptr, type val, int memorder)
+Built-in Function: type __atomic_xor_fetch (type *ptr, type val, int memorder)
+Built-in Function: type __atomic_or_fetch (type *ptr, type val, int memorder)
+Built-in Function: type __atomic_nand_fetch (type *ptr, type val, int memorder)
+These built-in functions perform the operation suggested by the name, and return the result of the operation. Operations on pointer arguments are performed as if the operands were of the uintptr_t type. That is, they are not scaled by the size of the type to which the pointer points.
+
+{ *ptr op= val; return *ptr; }
+The object pointed to by the first argument must be of integer or pointer type. It must not be a Boolean type. All memory orders are valid.
+
+Built-in Function: type __atomic_fetch_add (type *ptr, type val, int memorder)
+Built-in Function: type __atomic_fetch_sub (type *ptr, type val, int memorder)
+Built-in Function: type __atomic_fetch_and (type *ptr, type val, int memorder)
+Built-in Function: type __atomic_fetch_xor (type *ptr, type val, int memorder)
+Built-in Function: type __atomic_fetch_or (type *ptr, type val, int memorder)
+Built-in Function: type __atomic_fetch_nand (type *ptr, type val, int memorder)
+These built-in functions perform the operation suggested by the name, and return the value that had previously been in *ptr. Operations on pointer arguments are performed as if the operands were of the uintptr_t type. That is, they are not scaled by the size of the type to which the pointer points.
+
+{ tmp = *ptr; *ptr op= val; return tmp; }
+The same constraints on arguments apply as for the corresponding __atomic_op_fetch built-in functions. All memory orders are valid.
+
+Built-in Function: bool __atomic_test_and_set (void *ptr, int memorder)
+This built-in function performs an atomic test-and-set operation on the byte at *ptr. The byte is set to some implementation defined nonzero “set” value and the return value is true if and only if the previous contents were “set”. It should be only used for operands of type bool or char. For other types only part of the value may be set.
+
+All memory orders are valid.
+
+Built-in Function: void __atomic_clear (bool *ptr, int memorder)
+This built-in function performs an atomic clear operation on *ptr. After the operation, *ptr contains 0. It should be only used for operands of type bool or char and in conjunction with __atomic_test_and_set. For other types it may only clear partially. If the type is not bool prefer using __atomic_store.
+
+The valid memory order variants are __ATOMIC_RELAXED, __ATOMIC_SEQ_CST, and __ATOMIC_RELEASE.
+
+Built-in Function: void __atomic_thread_fence (int memorder)
+This built-in function acts as a synchronization fence between threads based on the specified memory order.
+
+All memory orders are valid.
+
+Built-in Function: void __atomic_signal_fence (int memorder)
+This built-in function acts as a synchronization fence between a thread and signal handlers based in the same thread.
+
+All memory orders are valid.
+
+Built-in Function: bool __atomic_always_lock_free (size_t size, void *ptr)
+This built-in function returns true if objects of size bytes always generate lock-free atomic instructions for the target architecture. size must resolve to a compile-time constant and the result also resolves to a compile-time constant.
+
+ptr is an optional pointer to the object that may be used to determine alignment. A value of 0 indicates typical alignment should be used. The compiler may also ignore this parameter.
+
+if (__atomic_always_lock_free (sizeof (long long), 0))
+Built-in Function: bool __atomic_is_lock_free (size_t size, void *ptr)
+This built-in function returns true if objects of size bytes always generate lock-free atomic instructions for the target architecture. If the built-in function is not known to be lock-free, a call is made to a runtime routine named __atomic_is_lock_free.
+
+ptr is an optional pointer to the object that may be used to determine alignment. A value of 0 indicates typical alignment should be used. The compiler may also ignore this parameter.
