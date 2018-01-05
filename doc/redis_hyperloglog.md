@@ -1,4 +1,4 @@
-#### Redis中hyperloglog是用来做基数统计的
+#### Redis中hyperloglog是用来做基数统计
 #### 1.主要原理
 Hyperloglog结构中，redis定义桶个数(16384)，index所在低[log2(16384)]14位为桶索引,从第14位开始第一次出现“1”的位置为注册值。  
 注册值只有50个数，50个可以用[log2(50)]6个bit就能保存.  
