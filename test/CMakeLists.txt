@@ -1,4 +1,4 @@
-add_definitions(-D_GNU_SOURCES)
+add_definitions(-D_GNU_SOURCE)
 
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/../src
@@ -19,3 +19,9 @@ add_executable(rbtree_test rbtree_test.c)
 target_link_libraries(rbtree_test jemalloc ez_cutil_static)
 set_target_properties(rbtree_test PROPERTIES LINKER_LANGUAGE "C" )
 set_target_properties(rbtree_test PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${EXECUTABLE_OUTPUT_PATH}")
+
+# build exe
+add_executable(aio_epoll aio/epoll_eventfd.c)
+target_link_libraries(aio_epoll aio)
+set_target_properties(aio_epoll PROPERTIES LINKER_LANGUAGE "C" )
+set_target_properties(aio_epoll PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${EXECUTABLE_OUTPUT_PATH}")
