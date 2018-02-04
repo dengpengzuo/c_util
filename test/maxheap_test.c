@@ -21,15 +21,19 @@ int main(int argc, char **argv) {
     for (int i = 0; i < ARRAY_SIZE; ++i) {
         array[i] = (uint32_t) (i + 1);
     }
-    ezMaxHeap *heap = new_max_heap(HEAP_SIZE, &compare_uint_data);
+    ezMaxHeap *heap = new_max_heap(10, &compare_uint_data);
     for (int i = 0; i < ARRAY_SIZE; ++i) {
-        push_max_heap(heap, array + i);
+        heap = push_max_heap(heap, array + i); // 内部有扩容，地址会发生变化，外面需要跟进这个内存变化.
     }
 
     for (int i = ARRAY_SIZE - 1; i >= 0; --i) {
         HeapData data = pop_max_heap(heap);
         if (&array[i] != data) {
-            fprintf(stdout, "测试错误了[%d]!=%d\n", i, CAST_UINT32_T(data));
+            fprintf(stdout, "测试错误了[%d]!=%d\n", array[i], CAST_UINT32_T(data));
+            return EXIT_FAILURE;
+        }
+        if (i != max_heap_size(heap)) {
+            fprintf(stdout, "测试错误了[%d]!=%d\n", i, max_heap_size(heap));
             return EXIT_FAILURE;
         }
         print_heap_data(data);

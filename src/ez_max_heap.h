@@ -13,6 +13,6 @@ uint32_t max_heap_size(ezMaxHeap *heap);
 
 void free_max_heap(ezMaxHeap *heap);
 
-void push_max_heap(ezMaxHeap *heap, HeapData data);
+ezMaxHeap *push_max_heap(ezMaxHeap *heap, HeapData data);
 
 HeapData pop_max_heap(ezMaxHeap *heap);

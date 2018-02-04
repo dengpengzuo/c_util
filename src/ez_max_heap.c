@@ -8,10 +8,17 @@ struct ezMaxHeap_t {
     HeapData array[0]; // gnu c99 zero-size array
 };
 
+static ezMaxHeap *extend_max_heap(ezMaxHeap *heap) {
+    size_t new_size = sizeof(ezMaxHeap) + (heap->a + 16) * sizeof(HeapData);
+    ezMaxHeap *newHeap = ez_realloc(heap, new_size);
+    newHeap->a += 16;
+    return newHeap;
+}
+
 ezMaxHeap *new_max_heap(uint32_t size, HeapCmpFunc cmpFunc) {
     ezMaxHeap *heap = ez_malloc(sizeof(ezMaxHeap) + size * sizeof(HeapData));
-    heap->n = 0;
     heap->a = size;
+    heap->n = 0;
     heap->cmp = cmpFunc;
     return heap;
 }
@@ -24,7 +31,10 @@ uint32_t max_heap_size(ezMaxHeap *heap) {
     return heap->n;
 }
 
-void push_max_heap(ezMaxHeap *heap, HeapData data) {
+ezMaxHeap *push_max_heap(ezMaxHeap *heap, HeapData data) {
+    if (heap->n >= heap->a) {
+        heap = extend_max_heap(heap);
+    }
     int hole_index = heap->n++;
     int parent_index = (hole_index - 1) / 2;
 
@@ -35,18 +45,20 @@ void push_max_heap(ezMaxHeap *heap, HeapData data) {
         parent_index = (hole_index - 1) / 2;
     }
     heap->array[hole_index] = data;
+    return heap;
 }
 
 HeapData pop_max_heap(ezMaxHeap *heap) {
     if (heap->n > 0) {
         HeapData data = heap->array[0];
 
-        // 从 0 开始 决定[left, right]谁最大上来.
+        // 从 0 开始 决定child中[left, right]谁最大，最大上来，继续儿子的儿子.
         int hole_index = 0;
         int min_child = 2 * (hole_index + 1); // 初始right.
         while (min_child <= heap->n) {
             // (left > right ? left : right)
-            min_child -= (min_child == heap->n || heap->cmp(heap->array[min_child - 1], heap->array[min_child]) > 0) ? 1 : 0;
+            min_child -= (min_child == heap->n || heap->cmp(heap->array[min_child - 1], heap->array[min_child]) > 0) ? 1
+                                                                                                                     : 0;
             heap->array[hole_index] = heap->array[min_child]; // child up
             hole_index = min_child;
             min_child = 2 * (hole_index + 1);
