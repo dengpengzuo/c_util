@@ -1,3 +1,4 @@
+set(CMAKE_C_FLAGS "-Wall -std=gnu99")
 add_definitions(-D_GNU_SOURCES -DUSE_JEMALLOC)
 
 include_directories(
@@ -5,6 +6,7 @@ include_directories(
 )
 
 set(SRC_LIST
+        ez_max_heap.c
         ez_daemon.c ez_event.c ez_net.c
         ez_hash.c ez_log.c ez_malloc.c ez_util.c
         ez_rbtree.c ez_list.c ez_rwlock.c

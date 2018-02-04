@@ -20,6 +20,11 @@ target_link_libraries(rbtree_test jemalloc ez_cutil_static)
 set_target_properties(rbtree_test PROPERTIES LINKER_LANGUAGE "C" )
 set_target_properties(rbtree_test PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${EXECUTABLE_OUTPUT_PATH}")
 
+add_executable(heap_test maxheap_test.c)
+target_link_libraries(heap_test jemalloc ez_cutil_static)
+set_target_properties(heap_test PROPERTIES LINKER_LANGUAGE "C" )
+set_target_properties(heap_test PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${EXECUTABLE_OUTPUT_PATH}")
+
 # build exe
 add_executable(aio_epoll aio/epoll_eventfd.c)
 target_link_libraries(aio_epoll aio)
