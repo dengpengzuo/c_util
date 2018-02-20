@@ -63,7 +63,7 @@ HeapData pop_max_heap(ezMaxHeap *heap) {
             hole_index = min_child;
             min_child = 2 * (hole_index + 1);
         }
-        heap->array[min_child] = heap->array[--heap->n];
+        heap->array[hole_index] = heap->array[--heap->n];
 
         return data;
     }
