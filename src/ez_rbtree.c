@@ -104,6 +104,7 @@ ezRBTreeNode * rbtree_find_node(ezRBTree * tree, findCompareKey find_proc, void 
     return node;
 }
 
+// tree, *root, node, sentinel
 static void default_rbtree_insert_value(ezRBTree * tree, ezRBTreeNode *temp, ezRBTreeNode *node, ezRBTreeNode *sentinel) {
     ezRBTreeNode **p;
 
@@ -119,12 +120,16 @@ static void default_rbtree_insert_value(ezRBTree * tree, ezRBTreeNode *temp, ezR
     node->parent = temp;
     node->left = sentinel;
     node->right = sentinel;
-    rbt_red(node);
+    rbt_red(node); // 新节点, 直接为red.
 }
 
 void rbtree_insert(ezRBTree *tree, ezRBTreeNode *node) {
     ezRBTreeNode **root, *temp, *sentinel;
-
+    // 1.节点非红即黑。
+    // 2.根节点是黑色。
+    // 3.所有NULL结点称为叶子节点，且认为颜色为黑
+    // 4.所有红节点的子节点都为黑色。
+    // 5.从任一节点到其叶子节点的所有路径上都包含相同数目的黑节点。
     /* a binary tree insert */
     root = (ezRBTreeNode **) &tree->root;
     sentinel = tree->sentinel;
@@ -133,34 +138,34 @@ void rbtree_insert(ezRBTree *tree, ezRBTreeNode *node) {
         node->parent = NULL;
         node->left = sentinel;
         node->right = sentinel;
-        rbt_black(node);
+        rbt_black(node); // insert root, set black.
         *root = node;
 
         return;
     }
 
-    default_rbtree_insert_value(tree, *root, node, sentinel);
+    default_rbtree_insert_value(tree, *root, node, sentinel); // 新节点，直接设为 red.
 
     /* re-balance tree */
-    while (node != *root && rbt_is_red(node->parent)) {
+    while (node != *root && rbt_is_red(node->parent)) {       // 新节点&父节点都是red，就要进行 re-balance tree.
 
         if (node->parent == node->parent->parent->left) {
-            temp = node->parent->parent->right;
+            temp = node->parent->parent->right;               // 叔节点
 
-            if (rbt_is_red(temp)) {
-                rbt_black(node->parent);
+            if (rbt_is_red(temp)) {                           // 叔节点是red
+                rbt_black(node->parent);                      // 父节点,叔节点都设为 black.
                 rbt_black(temp);
-                rbt_red(node->parent->parent);
+                rbt_red(node->parent->parent);                // 祖父节点，设为red. 继续.
                 node = node->parent->parent;
 
-            } else {
+            } else {                                          // 叔节点是 black.
                 if (node == node->parent->right) {
                     node = node->parent;
-                    rbtree_left_rotate(root, sentinel, node);
+                    rbtree_left_rotate(root, sentinel, node); // 左旋，祖节点作为父节点的右儿子，父节点的右儿子写到祖节点左儿子.
                 }
 
-                rbt_black(node->parent);
-                rbt_red(node->parent->parent);
+                rbt_black(node->parent);                      // node是red, parent是black
+                rbt_red(node->parent->parent);                // parent.parent是red
                 rbtree_right_rotate(root, sentinel, node->parent->parent);
             }
 
