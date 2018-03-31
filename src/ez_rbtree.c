@@ -89,35 +89,35 @@ static inline ezRBTreeNode * rbtree_min(ezRBTreeNode *node, ezRBTreeNode *sentin
 
 ezRBTreeNode * rbtree_find_node(ezRBTree * tree, findCompareKey find_proc, void * find_args)
 {
-    ezRBTreeNode *node = tree->root;
-    ezRBTreeNode *sentinel = tree->sentinel;
-    if (node == sentinel) {
-        return NULL;
-    }
+    ezRBTreeNode *node, *sentinel ;
+    node = tree->root;
+    sentinel = tree->sentinel;
+    if (node == sentinel) return NULL;
+
     do {
         int r = find_proc(node, find_args);
         if (r == 0)
             return node;
         node = (r < 0) ? node->right : node->left;
-    } while (node != NULL);
+    } while (node != sentinel);
 
-    return node;
+    return NULL;
 }
 
 // tree, *root, node, sentinel
-static void default_rbtree_insert_value(ezRBTree * tree, ezRBTreeNode *temp, ezRBTreeNode *node, ezRBTreeNode *sentinel) {
+static void default_rbtree_insert_value(ezRBTree * tree, ezRBTreeNode *begin, ezRBTreeNode *node, ezRBTreeNode *sentinel) {
     ezRBTreeNode **p;
 
     for (; ;) {
-        p = (tree->node_cmp_proc(node, temp) < 0) ? &temp->left : &temp->right;
+        p = (tree->node_cmp_proc(node, begin) < 0) ? &begin->left : &begin->right;
         if (*p == sentinel) {
             break;
         }
-        temp = *p;
+        begin = *p;
     }
 
     *p = node;
-    node->parent = temp;
+    node->parent = begin;
     node->left = sentinel;
     node->right = sentinel;
     rbt_red(node); // 新节点, 直接为red.

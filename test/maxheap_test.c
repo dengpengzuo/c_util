@@ -1,10 +1,73 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <stdint.h>
+#include <string.h>
+#include "ez_string.h"
+#include "ez_malloc.h"
 #include "ez_max_heap.h"
 
-static const uint32_t ARRAY_SIZE = 50;
-static const uint32_t HEAP_SIZE = 100;
+#define ngx_int_t  int32_t
+#define ngx_uint_t uint32_t
 
+extern char **environ;
+static int    ngx_os_argc;
+static char **ngx_os_argv;
+static char  *ngx_os_argv_last;
+
+ngx_int_t ngx_init_setproctitle() {
+    char *p;
+    size_t size;
+    ngx_uint_t i;
+
+    size = 0;
+
+    for (i = 0; environ[i]; i++) {
+        size += strlen(environ[i]) + 1;
+    }
+
+    p = ez_malloc(size);
+    if (p == NULL) {
+        return 1;
+    }
+
+    ngx_os_argv_last = ngx_os_argv[0];
+
+    for (i = 0; i < ngx_os_argc; i++) {
+        if (ngx_os_argv_last == ngx_os_argv[i]) {
+            ngx_os_argv_last = ngx_os_argv[i] + strlen(ngx_os_argv[i]) + 1;
+        }
+    }
+
+    for (i = 0; environ[i]; i++) {
+        if (ngx_os_argv_last == environ[i]) {
+
+            size = strlen(environ[i]) + 1;
+            ngx_os_argv_last = environ[i] + size;
+
+            ez_strncpy(p, environ[i], size);
+            environ[i] = (char *) p;
+            p += size;
+        }
+    }
+
+    ngx_os_argv_last--; // 这是 argv 能操作的最大值.
+
+    return 0;
+}
+
+void ngx_setproctitle(const char *new_titles) {
+    ngx_os_argv[1] = NULL;
+    char *p;
+    p = ez_strncpy(ngx_os_argv[0], "myheap:", ngx_os_argv_last - ngx_os_argv[0]);
+    p = ez_strncpy(p, (char *) new_titles, ngx_os_argv_last - p);
+
+    if (ngx_os_argv_last - p) {
+        memset(p, '\0', ngx_os_argv_last - p);
+    }
+}
+
+static const uint32_t ARRAY_SIZE = 50;
 #define CAST_UINT32_T(v)   (*(uint32_t*)(v))
 
 static int compare_uint_data(HeapData orig, HeapData dest) {
@@ -16,6 +79,13 @@ static void print_heap_data(HeapData data) {
 }
 
 int main(int argc, char **argv) {
+    ngx_os_argc = argc;
+    ngx_os_argv = argv;
+
+    // linux 内在部局为: << argv | environ >>
+    ngx_init_setproctitle();
+    ngx_setproctitle("myworker; ssss : bbbbbbb");
+
     uint32_t array[ARRAY_SIZE];
 
     for (int i = 0; i < ARRAY_SIZE; ++i) {
