@@ -20,10 +20,6 @@ bool ez_strtoul(const char *str, uint32_t * out);
 bool ez_strtol(const char *str, int32_t * out);
 bool ez_str2oct(const char *str, int32_t * out);
 
-/** 格式化输出函数 snprintf, vsnprintf */
-int ez_snprintf(char *buf, size_t size, const char *fmt, ...);
-int ez_vsnprintf(char *buf, size_t size, const char *fmt, va_list args);
-
 int64_t ustime(void) ;
 
 int64_t mstime(void) ;
