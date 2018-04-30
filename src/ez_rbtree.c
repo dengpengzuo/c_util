@@ -9,7 +9,7 @@
 #define rbt_is_black(node)          (!rbt_is_red(node))
 #define rbt_copy_color(n1, n2)      (n1->color = n2->color)
 
-void rbtree_init(ez_rbtree_t *tree, ez_rbtree_node *sentinel, rbTreeNodeCompare node_cmp_proc)
+void rbtree_init(ez_rbtree_t *tree, ez_rbtree_node_t *sentinel, rbTreeNodeCompare node_cmp_proc)
 {
     /* a sentinel must be black */
     rbt_black(sentinel);
@@ -22,14 +22,14 @@ void rbtree_init(ez_rbtree_t *tree, ez_rbtree_node *sentinel, rbTreeNodeCompare 
     tree->node_cmp_proc = node_cmp_proc;
 }
 
-static ez_rbtree_node * rbtree_min(ez_rbtree_node *node, ez_rbtree_node *sentinel);
+static ez_rbtree_node_t * rbtree_min(ez_rbtree_node_t *node, ez_rbtree_node_t *sentinel);
 
-ez_rbtree_node *rbtree_min_node(ez_rbtree_t *tree) {
+ez_rbtree_node_t *rbtree_min_node(ez_rbtree_t *tree) {
     return rbtree_min(tree->root, tree->sentinel);
 }
 
-static void rbtree_left_rotate(ez_rbtree_node **root, ez_rbtree_node *sentinel, ez_rbtree_node *node) {
-    ez_rbtree_node *temp;
+static void rbtree_left_rotate(ez_rbtree_node_t **root, ez_rbtree_node_t *sentinel, ez_rbtree_node_t *node) {
+    ez_rbtree_node_t *temp;
 
     temp = node->right;
     node->right = temp->left;
@@ -54,8 +54,8 @@ static void rbtree_left_rotate(ez_rbtree_node **root, ez_rbtree_node *sentinel, 
     node->parent = temp;
 }
 
-static void rbtree_right_rotate(ez_rbtree_node **root, ez_rbtree_node *sentinel, ez_rbtree_node *node) {
-    ez_rbtree_node *temp;
+static void rbtree_right_rotate(ez_rbtree_node_t **root, ez_rbtree_node_t *sentinel, ez_rbtree_node_t *node) {
+    ez_rbtree_node_t *temp;
 
     temp = node->left;
     node->left = temp->right;
@@ -80,16 +80,16 @@ static void rbtree_right_rotate(ez_rbtree_node **root, ez_rbtree_node *sentinel,
     node->parent = temp;
 }
 
-static inline ez_rbtree_node * rbtree_min(ez_rbtree_node *node, ez_rbtree_node *sentinel) {
+static inline ez_rbtree_node_t * rbtree_min(ez_rbtree_node_t *node, ez_rbtree_node_t *sentinel) {
     while (node != NULL && node->left != sentinel) {
         node = node->left;
     }
     return node;
 }
 
-ez_rbtree_node * rbtree_find_node(ez_rbtree_t * tree, findCompareKey find_proc, void * find_args)
+ez_rbtree_node_t * rbtree_find_node(ez_rbtree_t * tree, findCompareKey find_proc, void * find_args)
 {
-    ez_rbtree_node *node, *sentinel ;
+    ez_rbtree_node_t *node, *sentinel ;
     node = tree->root;
     sentinel = tree->sentinel;
     if (node == sentinel) return NULL;
@@ -105,8 +105,8 @@ ez_rbtree_node * rbtree_find_node(ez_rbtree_t * tree, findCompareKey find_proc, 
 }
 
 // tree, *root, node, sentinel
-static void default_rbtree_insert_value(ez_rbtree_t * tree, ez_rbtree_node *begin, ez_rbtree_node *node, ez_rbtree_node *sentinel) {
-    ez_rbtree_node **p;
+static void default_rbtree_insert_value(ez_rbtree_t * tree, ez_rbtree_node_t *begin, ez_rbtree_node_t *node, ez_rbtree_node_t *sentinel) {
+    ez_rbtree_node_t **p;
 
     for (; ;) {
         p = (tree->node_cmp_proc(node, begin) < 0) ? &begin->left : &begin->right;
@@ -123,15 +123,15 @@ static void default_rbtree_insert_value(ez_rbtree_t * tree, ez_rbtree_node *begi
     rbt_red(node); // 新节点, 直接为red.
 }
 
-void rbtree_insert(ez_rbtree_t *tree, ez_rbtree_node *node) {
-    ez_rbtree_node **root, *temp, *sentinel;
+void rbtree_insert(ez_rbtree_t *tree, ez_rbtree_node_t *node) {
+    ez_rbtree_node_t **root, *temp, *sentinel;
     // 1.节点非红即黑。
     // 2.根节点是黑色。
     // 3.所有NULL结点称为叶子节点，且认为颜色为黑
     // 4.所有红节点的子节点都为黑色。
     // 5.从任一节点到其叶子节点的所有路径上都包含相同数目的黑节点。
     /* a binary tree insert */
-    root = (ez_rbtree_node **) &tree->root;
+    root = (ez_rbtree_node_t **) &tree->root;
     sentinel = tree->sentinel;
 
     if (*root == sentinel) {
@@ -194,12 +194,12 @@ void rbtree_insert(ez_rbtree_t *tree, ez_rbtree_node *node) {
     rbt_black(*root);
 }
 
-void rbtree_delete(ez_rbtree_t *tree, ez_rbtree_node *node) {
+void rbtree_delete(ez_rbtree_t *tree, ez_rbtree_node_t *node) {
     uint8_t red;
-    ez_rbtree_node **root, *sentinel, *subst, *temp, *w;
+    ez_rbtree_node_t **root, *sentinel, *subst, *temp, *w;
 
     /* a binary tree delete */
-    root = (ez_rbtree_node **) &tree->root;
+    root = (ez_rbtree_node_t **) &tree->root;
     sentinel = tree->sentinel;
 
     if (node->left == sentinel) {

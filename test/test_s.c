@@ -15,7 +15,7 @@
 typedef struct worker_s {
     int32_t id;
     pthread_t thid;
-    ezEventLoop_t *w_event;
+    ez_event_loop_t *w_event;
 
     pthread_mutex_t lock;
     pthread_cond_t cond;
@@ -133,7 +133,7 @@ void *run_event_thread_proc(void *t) {
     return NULL;
 }
 
-void read_client_handler(ezEventLoop_t *eventLoop, int cfd, void *clientData, int mask) {
+void read_client_handler(ez_event_loop_t *eventLoop, int cfd, void *clientData, int mask) {
     worker_connect_t *c = (worker_connect_t *) clientData;
     uint32_t wid = _worker_index(c->fd);
     int r = 0;
@@ -169,7 +169,7 @@ void read_client_handler(ezEventLoop_t *eventLoop, int cfd, void *clientData, in
     }
 }
 
-void accept_handler(ezEventLoop_t *eventLoop, int s, void *clientData, int mask) {
+void accept_handler(ez_event_loop_t *eventLoop, int s, void *clientData, int mask) {
     EZ_NOTUSED(eventLoop);
     EZ_NOTUSED(clientData);
     EZ_NOTUSED(mask);

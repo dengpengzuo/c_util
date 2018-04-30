@@ -22,10 +22,10 @@ typedef struct ez_file_event_s {
 	ezFileProc wfileProc;
 	void *clientData;
 
-	ez_rbtree_node rb_node;	/* rbtree node */
+	ez_rbtree_node_t rb_node;	/* rbtree node */
 } ez_file_event_t;
 
-static inline ez_file_event_t *cast_to_file_event(ez_rbtree_node * node)
+static inline ez_file_event_t *cast_to_file_event(ez_rbtree_node_t * node)
 {
 	return EZ_CONTAINER_OF(node, ez_file_event_t, rb_node);
 }
@@ -50,25 +50,25 @@ static inline ez_time_event_t *cast_to_time_event(list_head_t * node)
 typedef struct ez_fired_event_s {
 	int fd;
 	int mask;
-} ez_fired_event;
+} ez_fired_event_t;
 
 /* State of an event based program */
 struct ez_event_loop_s {
 	int stop;
-	void *apidata;	/* This is used for event polling API specific data */
+	void *apidata;							/* This is used for event polling API specific data */
 
-	int setsize;	/* max number of file descriptors tracked */
-	int count;		/* add file event count */
+	int setsize;							/* max number of file descriptors tracked */
+	int count;								/* add file event count */
 
-	ez_rbtree_t rbtree_events;			/* rbtree file events */
-	ez_rbtree_node rbnode_sentinel;	/* rbtree sentinel node */
-	ez_rbtree_node *free_events;		/* free rbtree node linked list (node->parent) */
+	ez_rbtree_t		 rbtree_events;			/* rbtree file events */
+	ez_rbtree_node_t rbnode_sentinel;		/* rbtree sentinel node */
+	ez_rbtree_node_t *free_events;			/* free rbtree node linked list (node->parent) */
 
-	time_t lastTime;				/* Used to detect system clock skew */
+	time_t lastTime;						/* Used to detect system clock skew */
 	int64_t timeNextId;
-	list_head_t time_events;			/* 按照时间长短和ID进行比较放入的队列 */
+	list_head_t time_events;				/* 按照时间长短和ID进行比较放入的队列 */
 
-	ez_fired_event *fired;			/* Fired events */
+	ez_fired_event_t *fired;				/* Fired events */
 };
 
 #if defined(__linux__)
@@ -77,9 +77,9 @@ struct ez_event_loop_s {
     #error "not support os!"
 #endif
 
-static ez_file_event_t *ez_fund_file_event(ezEventLoop_t * eventLoop, int fd);
+static ez_file_event_t *ez_fund_file_event(ez_event_loop_t * eventLoop, int fd);
 
-static inline void put_to_free_file_events(ezEventLoop_t * eventLoop, ez_file_event_t * e)
+static inline void put_to_free_file_events(ez_event_loop_t * eventLoop, ez_file_event_t * e)
 {
 	if (e == NULL)
 		return;
@@ -87,34 +87,34 @@ static inline void put_to_free_file_events(ezEventLoop_t * eventLoop, ez_file_ev
 	eventLoop->free_events = &(e->rb_node);
 }
 
-static int ez_process_events(ezEventLoop_t * eventLoop, int flags);
+static int ez_process_events(ez_event_loop_t * eventLoop, int flags);
 
-static int file_event_compare_proc(ez_rbtree_node * newNode, ez_rbtree_node * existNode)
+static int file_event_compare_proc(ez_rbtree_node_t * newNode, ez_rbtree_node_t * existNode)
 {
 	ez_file_event_t *newEvent = cast_to_file_event(newNode);
 	ez_file_event_t *existEvent = cast_to_file_event(existNode);
 	return newEvent->fd > existEvent->fd ? 1 : (newEvent->fd < existEvent->fd ? -1 : 0);
 }
 
-static int file_event_find_compare_proc(ez_rbtree_node * node, void *find_args)
+static int file_event_find_compare_proc(ez_rbtree_node_t * node, void *find_args)
 {
 	int fd = *((int *)find_args);
 	ez_file_event_t *fe = cast_to_file_event(node);
 	return fe->fd == fd ? 0 : (fe->fd > fd ? 1 : -1);
 }
 
-static ez_file_event_t *ez_fund_file_event(ezEventLoop_t * eventLoop, int fd)
+static ez_file_event_t *ez_fund_file_event(ez_event_loop_t * eventLoop, int fd)
 {
-	ez_rbtree_node *n =
+	ez_rbtree_node_t *n =
 	    rbtree_find_node(&eventLoop->rbtree_events, file_event_find_compare_proc, (void *)&fd);
 	return n == NULL ? NULL : cast_to_file_event(n);
 }
 
-ezEventLoop_t *ez_create_event_loop(int setsize)
+ez_event_loop_t *ez_create_event_loop(int setsize)
 {
-	ezEventLoop_t *eventLoop = NULL;
+	ez_event_loop_t *eventLoop = NULL;
 
-	eventLoop = (ezEventLoop_t *) ez_malloc(sizeof(ezEventLoop_t));
+	eventLoop = (ez_event_loop_t *) ez_malloc(sizeof(ez_event_loop_t));
 	if (!eventLoop)
 		goto err;
 
@@ -122,7 +122,7 @@ ezEventLoop_t *ez_create_event_loop(int setsize)
 		    file_event_compare_proc);
 	eventLoop->free_events = NULL;
 
-	eventLoop->fired = (ez_fired_event *) ez_malloc(sizeof(ez_fired_event) * setsize);
+	eventLoop->fired = (ez_fired_event_t *) ez_malloc(sizeof(ez_fired_event_t) * setsize);
 	if (eventLoop->fired == NULL)
 		goto err;
 
@@ -145,9 +145,9 @@ ezEventLoop_t *ez_create_event_loop(int setsize)
 	return NULL;
 }
 
-void ez_delete_event_loop(ezEventLoop_t * eventLoop)
+void ez_delete_event_loop(ez_event_loop_t * eventLoop)
 {
-	ez_rbtree_node *i;
+	ez_rbtree_node_t *i;
 	ez_file_event_t *e;
 	ez_time_event_t *t;
 	if (!eventLoop)
@@ -179,14 +179,14 @@ void ez_delete_event_loop(ezEventLoop_t * eventLoop)
 	ez_free(eventLoop);
 }
 
-void ez_stop_event_loop(ezEventLoop_t * eventLoop)
+void ez_stop_event_loop(ez_event_loop_t * eventLoop)
 {
 	if (!eventLoop)
 		return;
 	ezApiStop(eventLoop);
 }
 
-int ez_create_file_event(ezEventLoop_t * eventLoop, int fd, EVENT_MASK mask, ezFileProc proc, void *clientData)
+int ez_create_file_event(ez_event_loop_t * eventLoop, int fd, EVENT_MASK mask, ezFileProc proc, void *clientData)
 {
 	if (mask == AE_NONE) return AE_ERR;
 
@@ -246,7 +246,7 @@ int ez_create_file_event(ezEventLoop_t * eventLoop, int fd, EVENT_MASK mask, ezF
     return AE_OK;
 }
 
-void ez_delete_file_event(ezEventLoop_t * eventLoop, int fd, EVENT_MASK mask)
+void ez_delete_file_event(ez_event_loop_t * eventLoop, int fd, EVENT_MASK mask)
 {
 	if (fd >= eventLoop->setsize)
 		return;
@@ -281,7 +281,7 @@ static void insert_time_event_list(list_head_t *first, list_head_t *end, ez_time
  * eventLoop    事件loop
  * milliseconds 启动时间
  */
-int64_t ez_create_time_event(ezEventLoop_t * eventLoop, int64_t period, ezTimeProc proc, void *clientData)
+int64_t ez_create_time_event(ez_event_loop_t * eventLoop, int64_t period, ezTimeProc proc, void *clientData)
 {
 	int64_t id = eventLoop->timeNextId++;
 	ez_time_event_t *te = ez_malloc(sizeof(*te));
@@ -299,7 +299,7 @@ int64_t ez_create_time_event(ezEventLoop_t * eventLoop, int64_t period, ezTimePr
 	return id;
 }
 
-void ez_delete_time_event(ezEventLoop_t * eventLoop, int64_t id)
+void ez_delete_time_event(ez_event_loop_t * eventLoop, int64_t id)
 {
     ez_time_event_t *te = NULL;
 	LIST_FOR(&(eventLoop->time_events), pos) {
@@ -317,7 +317,7 @@ void ez_delete_time_event(ezEventLoop_t * eventLoop, int64_t id)
 #define AE_TIME_EVENTS  2
 #define AE_ALL_EVENTS   (AE_FILE_EVENTS | AE_TIME_EVENTS)
 
-void ez_run_event_loop(ezEventLoop_t * eventLoop)
+void ez_run_event_loop(ez_event_loop_t * eventLoop)
 {
 	if (!eventLoop)
 		return;
@@ -330,7 +330,7 @@ void ez_run_event_loop(ezEventLoop_t * eventLoop)
 }
 
 /* Process time events */
-static int process_time_events(ezEventLoop_t * eventLoop)
+static int process_time_events(ez_event_loop_t * eventLoop)
 {
 	int processed = 0;
 	int all_fired = 0;
@@ -406,7 +406,7 @@ static int process_time_events(ezEventLoop_t * eventLoop)
  * the events that's possible to process without to wait are processed.
  *
  * The function returns the number of events processed. */
-static int ez_process_events(ezEventLoop_t * eventLoop, int flags)
+static int ez_process_events(ez_event_loop_t * eventLoop, int flags)
 {
 	int processed = 0, numevents;
 
