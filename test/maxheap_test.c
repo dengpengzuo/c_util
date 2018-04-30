@@ -70,11 +70,11 @@ void ngx_setproctitle(const char *new_titles) {
 static const uint32_t ARRAY_SIZE = 50;
 #define CAST_UINT32_T(v)   (*(uint32_t*)(v))
 
-static int compare_uint_data(HeapData orig, HeapData dest) {
+static int compare_uint_data(heap_data orig, heap_data dest) {
     return CAST_UINT32_T(orig) > CAST_UINT32_T(dest) ? 1 : 0;
 }
 
-static void print_heap_data(HeapData data) {
+static void print_heap_data(heap_data data) {
     fprintf(stdout, "note: max heap's pop element is [%d].\n", CAST_UINT32_T(data));
 }
 
@@ -91,13 +91,13 @@ int main(int argc, char **argv) {
     for (int i = 0; i < ARRAY_SIZE; ++i) {
         array[i] = (uint32_t) (i + 1);
     }
-    ezMaxHeap *heap = new_max_heap(10, &compare_uint_data);
+    ez_max_heap_t *heap = new_max_heap(10, &compare_uint_data);
     for (int i = 0; i < ARRAY_SIZE; ++i) {
         heap = push_max_heap(heap, array + i); // 内部有扩容，地址会发生变化，外面需要跟进这个内存变化.
     }
 
     for (int i = ARRAY_SIZE - 1; i >= 0; --i) {
-        HeapData data = pop_max_heap(heap);
+        heap_data data = pop_max_heap(heap);
         if (&array[i] != data) {
             fprintf(stdout, "测试错误了[%d]!=%d\n", array[i], CAST_UINT32_T(data));
             return EXIT_FAILURE;

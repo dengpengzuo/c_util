@@ -15,19 +15,19 @@
 typedef struct worker_s {
     int32_t id;
     pthread_t thid;
-    ezEventLoop *w_event;
+    ezEventLoop_t *w_event;
 
     pthread_mutex_t lock;
     pthread_cond_t cond;
 } worker_t;
 
 typedef struct connect_list_s {
-    list_head clients;           // list<connect>
+    list_head_t clients;           // list<connect>
     pthread_mutex_t client_lock; // client_lock
 } connect_list_t;
 
 typedef struct worker_connect_s {
-    list_head list_node;
+    list_head_t list_node;
     worker_t *worker;  /* 所属的worker */
     int fd;            /* socket fd */
 
@@ -35,7 +35,7 @@ typedef struct worker_connect_s {
     uint8_t data[CONNECT_READ_BUF_SIZE];      /* read buffer */
 } worker_connect_t;
 
-static inline worker_connect_t *cast_to_connect(list_head *entry) {
+static inline worker_connect_t *cast_to_connect(list_head_t *entry) {
     return EZ_CONTAINER_OF(entry, worker_connect_t, list_node);
 }
 
@@ -133,7 +133,7 @@ void *run_event_thread_proc(void *t) {
     return NULL;
 }
 
-void read_client_handler(ezEventLoop *eventLoop, int cfd, void *clientData, int mask) {
+void read_client_handler(ezEventLoop_t *eventLoop, int cfd, void *clientData, int mask) {
     worker_connect_t *c = (worker_connect_t *) clientData;
     uint32_t wid = _worker_index(c->fd);
     int r = 0;
@@ -169,7 +169,7 @@ void read_client_handler(ezEventLoop *eventLoop, int cfd, void *clientData, int 
     }
 }
 
-void accept_handler(ezEventLoop *eventLoop, int s, void *clientData, int mask) {
+void accept_handler(ezEventLoop_t *eventLoop, int s, void *clientData, int mask) {
     EZ_NOTUSED(eventLoop);
     EZ_NOTUSED(clientData);
     EZ_NOTUSED(mask);
@@ -262,7 +262,7 @@ void wait_and_stop_boss() {
     pthread_cond_destroy(&boss->cond);
 }
 
-void free_connect(list_head *entry) {
+void free_connect(list_head_t *entry) {
     worker_connect_t *con = cast_to_connect(entry);
     ez_free(con);
 }

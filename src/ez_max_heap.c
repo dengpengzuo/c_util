@@ -1,37 +1,37 @@
 #include "ez_max_heap.h"
 #include "ez_malloc.h"
 
-struct ezMaxHeap_t {
+struct ez_max_heap_s {
     uint32_t n;
     uint32_t a;
     HeapCmpFunc cmp;
-    HeapData array[0]; // gnu c99 zero-size array
+    heap_data array[0]; // gnu c99 zero-size array
 };
 
-static ezMaxHeap *extend_max_heap(ezMaxHeap *heap) {
-    size_t new_size = sizeof(ezMaxHeap) + (heap->a + 16) * sizeof(HeapData);
-    ezMaxHeap *newHeap = ez_realloc(heap, new_size);
+static ez_max_heap_t *extend_max_heap(ez_max_heap_t *heap) {
+    size_t new_size = sizeof(ez_max_heap_t) + (heap->a + 16) * sizeof(heap_data);
+    ez_max_heap_t *newHeap = ez_realloc(heap, new_size);
     newHeap->a += 16;
     return newHeap;
 }
 
-ezMaxHeap *new_max_heap(uint32_t size, HeapCmpFunc cmpFunc) {
-    ezMaxHeap *heap = ez_malloc(sizeof(ezMaxHeap) + size * sizeof(HeapData));
+ez_max_heap_t *new_max_heap(uint32_t size, HeapCmpFunc cmpFunc) {
+    ez_max_heap_t *heap = ez_malloc(sizeof(ez_max_heap_t) + size * sizeof(heap_data));
     heap->a = size;
     heap->n = 0;
     heap->cmp = cmpFunc;
     return heap;
 }
 
-void free_max_heap(ezMaxHeap *heap) {
+void free_max_heap(ez_max_heap_t *heap) {
     ez_free(heap);
 }
 
-uint32_t max_heap_size(ezMaxHeap *heap) {
+uint32_t max_heap_size(ez_max_heap_t *heap) {
     return heap->n;
 }
 
-ezMaxHeap *push_max_heap(ezMaxHeap *heap, HeapData data) {
+ez_max_heap_t *push_max_heap(ez_max_heap_t *heap, heap_data data) {
     if (heap->n >= heap->a) {
         heap = extend_max_heap(heap);
     }
@@ -48,9 +48,9 @@ ezMaxHeap *push_max_heap(ezMaxHeap *heap, HeapData data) {
     return heap;
 }
 
-HeapData pop_max_heap(ezMaxHeap *heap) {
+heap_data pop_max_heap(ez_max_heap_t *heap) {
     if (heap->n > 0) {
-        HeapData data = heap->array[0];
+        heap_data data = heap->array[0];
 
         // 从 0 开始 决定child中[left, right]谁最大，最大上来，继续儿子的儿子.
         int hole_index = 0;

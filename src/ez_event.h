@@ -10,7 +10,7 @@
 #define AE_TIMER_NEXT   0	/* timeProc 返回值，表示当前time事件执行完后，按照原来的超时继续执行 */
 
 /* 结构定义 */
-typedef struct ezEventLoop_t ezEventLoop;
+typedef struct ez_event_loop_s ezEventLoop_t;
 
 typedef enum {
 	AE_NONE		= 0x0,
@@ -18,23 +18,23 @@ typedef enum {
 	AE_WRITABLE = 0x2
 } EVENT_MASK;
 
-typedef void (*ezFileProc)(ezEventLoop * eventLoop, int fd, void *clientData, int mask);
-typedef int (*ezTimeProc)(ezEventLoop * eventLoop, int64_t timeId, void *clientData);
+typedef void (*ezFileProc)(ezEventLoop_t * eventLoop, int fd, void *clientData, int mask);
+typedef int (*ezTimeProc)(ezEventLoop_t * eventLoop, int64_t timeId, void *clientData);
 
 /* Prototypes */
-ezEventLoop *ez_create_event_loop(int setsize);
-void ez_delete_event_loop(ezEventLoop * eventLoop);
+ezEventLoop_t *ez_create_event_loop(int setsize);
+void ez_delete_event_loop(ezEventLoop_t * eventLoop);
 
 /* socket event */
-int ez_create_file_event(ezEventLoop * eventLoop, int fd, EVENT_MASK mask, ezFileProc proc, void *clientData);
-void ez_delete_file_event(ezEventLoop * eventLoop, int fd, EVENT_MASK mask);
+int ez_create_file_event(ezEventLoop_t * eventLoop, int fd, EVENT_MASK mask, ezFileProc proc, void *clientData);
+void ez_delete_file_event(ezEventLoop_t * eventLoop, int fd, EVENT_MASK mask);
 
 /* time out event*/
-int64_t ez_create_time_event(ezEventLoop * eventLoop, int64_t period, ezTimeProc proc, void *clientData);
-void ez_delete_time_event(ezEventLoop * eventLoop, int64_t time_id);
+int64_t ez_create_time_event(ezEventLoop_t * eventLoop, int64_t period, ezTimeProc proc, void *clientData);
+void ez_delete_time_event(ezEventLoop_t * eventLoop, int64_t time_id);
 
-void ez_stop_event_loop(ezEventLoop *eventLoop);
+void ez_stop_event_loop(ezEventLoop_t *eventLoop);
 
-void ez_run_event_loop(ezEventLoop * eventLoop);
+void ez_run_event_loop(ezEventLoop_t * eventLoop);
 
 #endif				/* _EZ_EVENT_H */

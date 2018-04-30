@@ -2,17 +2,17 @@
 
 #include <stdint.h>
 
-typedef void *HeapData;
-typedef struct ezMaxHeap_t ezMaxHeap;
+typedef void *heap_data;
+typedef struct ez_max_heap_s ez_max_heap_t;
 
-typedef int (*HeapCmpFunc)(HeapData orig, HeapData dest);
+typedef int (*HeapCmpFunc)(heap_data orig, heap_data dest);
 
-ezMaxHeap *new_max_heap(uint32_t size, HeapCmpFunc cmpFunc);
+ez_max_heap_t *new_max_heap(uint32_t size, HeapCmpFunc cmpFunc);
 
-uint32_t max_heap_size(ezMaxHeap *heap);
+uint32_t max_heap_size(ez_max_heap_t *heap);
 
-void free_max_heap(ezMaxHeap *heap);
+void free_max_heap(ez_max_heap_t *heap);
 
-ezMaxHeap *push_max_heap(ezMaxHeap *heap, HeapData data);
+ez_max_heap_t *push_max_heap(ez_max_heap_t *heap, heap_data data);
 
-HeapData pop_max_heap(ezMaxHeap *heap);
+heap_data pop_max_heap(ez_max_heap_t *heap);

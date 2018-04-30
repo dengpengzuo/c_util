@@ -11,7 +11,7 @@ typedef struct ezApiState {
 
 static eventfd_t _STOP_CMD = 0xFF;
 
-static void ezApiDoEventfdCmd(ezEventLoop * eventLoop)
+static void ezApiDoEventfdCmd(ezEventLoop_t * eventLoop)
 {
 	eventfd_t cmd = 0;
 	ezApiState *state = (ezApiState *) eventLoop->apidata;
@@ -22,7 +22,7 @@ static void ezApiDoEventfdCmd(ezEventLoop * eventLoop)
 	}
 }
 
-static int ezApiCreate(ezEventLoop * eventLoop)
+static int ezApiCreate(ezEventLoop_t * eventLoop)
 {
 	ezApiState *state = (ezApiState *) ez_malloc(sizeof(ezApiState));
 
@@ -52,7 +52,7 @@ static int ezApiCreate(ezEventLoop * eventLoop)
 	return AE_OK;
 }
 
-static void ezApiDelete(ezEventLoop * eventLoop)
+static void ezApiDelete(ezEventLoop_t * eventLoop)
 {
 	ezApiState *state = eventLoop->apidata;
 
@@ -63,7 +63,7 @@ static void ezApiDelete(ezEventLoop * eventLoop)
 	ez_free(state);
 }
 
-static int ezApiAddEvent(ezEventLoop * eventLoop, int fd, int mask, int old_mask)
+static int ezApiAddEvent(ezEventLoop_t * eventLoop, int fd, int mask, int old_mask)
 {
 	ezApiState *state = eventLoop->apidata;
 	struct epoll_event ee;
@@ -84,7 +84,7 @@ static int ezApiAddEvent(ezEventLoop * eventLoop, int fd, int mask, int old_mask
 	return AE_OK;
 }
 
-static void ezApiDelEvent(ezEventLoop * eventLoop, int fd, int delmask, int oldmask)
+static void ezApiDelEvent(ezEventLoop_t * eventLoop, int fd, int delmask, int oldmask)
 {
 	ezApiState *state = eventLoop->apidata;
 	struct epoll_event ee;
@@ -106,25 +106,25 @@ static void ezApiDelEvent(ezEventLoop * eventLoop, int fd, int delmask, int oldm
 	}
 }
 
-static void ezApiStop(ezEventLoop * eventLoop)
+static void ezApiStop(ezEventLoop_t * eventLoop)
 {
 	ezApiState *state = eventLoop->apidata;
 	eventfd_write(state->evfd, _STOP_CMD);
 }
 
-static void ezApiBeforePoll(ezEventLoop * eventLoop)
+static void ezApiBeforePoll(ezEventLoop_t * eventLoop)
 {
 	ezApiState *state = eventLoop->apidata;
 	ezApiAddEvent(eventLoop, state->evfd, AE_READABLE, AE_NONE);
 }
 
-static void ezApiAfterPoll(ezEventLoop * eventLoop)
+static void ezApiAfterPoll(ezEventLoop_t * eventLoop)
 {
 	ezApiState *state = eventLoop->apidata;
 	ezApiDelEvent(eventLoop, state->evfd, AE_READABLE, AE_READABLE);
 }
 
-static int ezApiPoll(ezEventLoop * eventLoop, int timeout)
+static int ezApiPoll(ezEventLoop_t * eventLoop, int timeout)
 {
 	ezApiState *state = eventLoop->apidata;
 	int retval, numevents = 0;
