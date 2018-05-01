@@ -12,6 +12,7 @@
 
 #include "ez_net.h"
 #include "ez_util.h"
+#include "ez_string.h"
 #include "ez_log.h"
 
 static const char * const SFNA[] = {"", "AF_UNIX", "AF_INET", "AF_INET6"};

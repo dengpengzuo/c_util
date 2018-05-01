@@ -14,6 +14,7 @@
 
 #include "ez_macro.h"
 #include "ez_util.h"
+#include "ez_string.h"
 #include "ez_log.h"
 
 #define LOG_MAX_LEN 256		/* max length of log message */

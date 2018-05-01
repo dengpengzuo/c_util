@@ -3,7 +3,10 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <string.h>
+
 #include "ez_string.h"
+#include "ez_util.h"
+#include "ez_log.h"
 #include "ez_malloc.h"
 #include "ez_max_heap.h"
 
@@ -11,9 +14,9 @@
 #define ngx_uint_t uint32_t
 
 extern char **environ;
-static int    ngx_os_argc;
+static int ngx_os_argc;
 static char **ngx_os_argv;
-static char  *ngx_os_argv_last;
+static char *ngx_os_argv_last;
 
 ngx_int_t ngx_init_setproctitle() {
     char *p;
@@ -67,6 +70,20 @@ void ngx_setproctitle(const char *new_titles) {
     }
 }
 
+void test_utf8() {
+    // utf8.bytes
+    uint8_t buf[128];
+    size_t r = ez_read_file("./test/hello.txt", buf, 128);
+    buf[r] = '\0';
+    log_hexdump(LOG_INFO, buf, r, "utf8");
+
+    // utf8-> unicode
+    u_short dst[128];
+    r = ez_utf8_decode(dst, buf, r);
+    dst[r] = '\0';
+    log_hexdump(LOG_INFO, (uint8_t*) &dst[0], r * 2, "unicode");
+}
+
 static const uint32_t ARRAY_SIZE = 50;
 #define CAST_UINT32_T(v)   (*(uint32_t*)(v))
 
@@ -85,6 +102,10 @@ int main(int argc, char **argv) {
     // linux 内在部局为: << argv | environ >>
     ngx_init_setproctitle();
     ngx_setproctitle("myworker; ssss : bbbbbbb");
+
+    log_init(LOG_VVERB, NULL);
+
+    test_utf8();
 
     uint32_t array[ARRAY_SIZE];
 

@@ -17,8 +17,8 @@ int ez_snprintf(char *buf, size_t size, const char *fmt, ...);
 
 int ez_vsnprintf(char *buf, size_t size, const char *fmt, va_list args);
 
-size_t ez_utf8_encode(u_int8_t *dst, const u_char *src, size_t n);
+size_t ez_utf8_encode(u_int8_t *dst, const u_short *src, size_t n);
 
-size_t ez_utf8_decode(u_char *dst, const u_int8_t *src, size_t n);
+size_t ez_utf8_decode(u_short *dst, const u_int8_t *src, size_t n);
 
 #endif /* _EZ_STRING_H */
