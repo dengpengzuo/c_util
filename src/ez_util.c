@@ -225,7 +225,7 @@ ssize_t ez_read_file(const char *file_name, uint8_t *buf, size_t len) {
         size = read(fd, buf, len);
         if (size == 0) {
             log_warn("read file %s 0 bits.", file_name);
-        } else {
+        } else if (size < 0) {
             log_error("read file %s error:[%s]", file_name, strerror(errno));
             size = 0;
         }
