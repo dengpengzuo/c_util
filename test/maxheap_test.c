@@ -78,7 +78,7 @@ void test_utf8() {
     log_hexdump(LOG_INFO, buf, r, "utf8");
 
     // utf8-> unicode
-    u_short dst[128];
+    wchar_t dst[128];
     r = ez_utf8_decode(dst, buf, r);
     dst[r] = '\0';
     log_hexdump(LOG_INFO, (uint8_t*) &dst[0], r * 2, "unicode");
