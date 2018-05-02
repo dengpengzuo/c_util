@@ -229,6 +229,8 @@ ssize_t ez_read_file(const char *file_name, uint8_t *buf, size_t len) {
             log_error("read file %s error:[%s]", file_name, strerror(errno));
             size = 0;
         }
+        // 打开成功后,关闭文件句柄.
+        close(fd);
     } else {
         log_error("open file %s failed:[%s]", file_name, strerror(errno));
         size = 0;

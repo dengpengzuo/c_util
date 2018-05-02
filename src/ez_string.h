@@ -5,6 +5,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <stdarg.h>
+#include <stdint.h>
 #include <stddef.h>             /* offsetof() */
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,8 +18,8 @@ int ez_snprintf(char *buf, size_t size, const char *fmt, ...);
 
 int ez_vsnprintf(char *buf, size_t size, const char *fmt, va_list args);
 
-size_t ez_utf8_encode(u_int8_t *dst, const u_short *src, size_t n);
+size_t ez_utf8_encode(uint8_t *dst, const wchar_t *src, size_t n);
 
-size_t ez_utf8_decode(u_short *dst, const u_int8_t *src, size_t n);
+size_t ez_utf8_decode(wchar_t *dst, const uint8_t *src, size_t n);
 
 #endif /* _EZ_STRING_H */
