@@ -93,12 +93,15 @@ size_t ez_utf8_encode(u_int8_t *dst, const u_short *src, size_t n) {
 // 取从最高位起,有几位1.
 static inline int left_bits(u_int8_t x) {
     // 2, 3, 4
-    int bit = 0;
-    while ((x & 0x80) == 0x80) {
-        x = x << 1;
-        ++bit;
+    if ((x & 0xE0) == 0xc0) {
+        return 2;
+    } else if ((x & 0xF0) == 0xE0) {
+        return 3;
+    } else if ((x & 0xF8) == 0xF0) {
+        return 4;
+    } else {
+        return 0;
     }
-    return bit;
 }
 
 size_t ez_utf8_decode(u_short *dst, const u_int8_t *src, size_t n) {
