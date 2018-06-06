@@ -109,6 +109,8 @@ static int _ez_net_tcp_server(int port, char *bindaddr, int af, int backlog)
 			goto error;
 		if (ez_net_set_non_block(s) == ANET_ERR)
 			goto error;
+		if (ez_net_set_reuse_port(s) == ANET_ERR)
+			goto error;
 		if (ez_net_bind(s, p->ai_addr, p->ai_addrlen) == ANET_ERR)
 			goto error;
 		if (ez_net_listen(s, backlog) == ANET_ERR)
@@ -445,6 +447,16 @@ int ez_net_set_non_block(int fd)
 	}
 #endif
 	return ANET_OK;
+}
+
+int ez_net_set_reuse_port(int fd)
+{
+	int reuseport = 1;
+	if (setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &reuseport, sizeof(reuseport)) ==-1 ) {
+		log_error("setsocopt SO_REUSEPORT :%s", strerror(errno));
+		return ANET_ERR;
+	}
+	return ANET_ERR;
 }
 
 int ez_net_set_reuse_addr(int fd)

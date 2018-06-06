@@ -48,6 +48,7 @@ int ez_net_set_recv_buf_size(int fd, int bufsize);
 int ez_net_set_non_block(int fd);
 int ez_net_set_closexec(int fd);
 int ez_net_set_reuse_addr(int fd);
+int ez_net_set_reuse_port(int fd);
 
 int ez_net_set_tcp_nodelay(int fd, int val);
 #define ez_net_tcp_enable_nodelay(fd)          (ez_net_set_tcp_nodelay(fd, 1))

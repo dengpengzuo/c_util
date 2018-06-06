@@ -13,6 +13,7 @@ cscope.*
 bin
 lib
 build
+cmake-build-debug
 
 # Libraries
 *.lib
