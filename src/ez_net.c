@@ -456,7 +456,7 @@ int ez_net_set_reuse_port(int fd)
 		log_error("setsocopt SO_REUSEPORT :%s", strerror(errno));
 		return ANET_ERR;
 	}
-	return ANET_ERR;
+	return ANET_OK;
 }
 
 int ez_net_set_reuse_addr(int fd)
