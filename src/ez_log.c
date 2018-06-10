@@ -135,7 +135,7 @@ int log_loggable(LOG_LEVEL level)
 	return 1;
 }
 
-void _log(LOG_LEVEL log_level, const char *file, int line, int panic, const char *fmt, ...)
+void _log_core(LOG_LEVEL log_level, const char *file, int line, int panic, const char *fmt, ...)
 {
 	struct logger *l = &logger;
 	size_t len, size;

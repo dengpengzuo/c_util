@@ -49,7 +49,7 @@ struct ez_signal {
     void (*cust_handler)(struct ez_signal *sig);
 }; // 字节对齐, sizeof(struct ez_signal)=32 bytes.
 
-#define WORKER_SIZE   3
+#define WORKER_SIZE   4
 static worker_t     _boss;
 static worker_t     _workers[WORKER_SIZE];
 static connect_list_t  _worker_clients[WORKER_SIZE];
