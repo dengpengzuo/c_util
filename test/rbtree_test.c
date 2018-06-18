@@ -63,10 +63,10 @@ int main(int argc, char **argv) {
     void *align_ptr = NULL;
     for (int i = 0; i < NODES; ++i) {
         align_ptr = EZ_ALIGN_PTR(nodes[i]);
-        fprintf(stdout, "ptr:%p, align_ptr:%p, use mem:%8lu\n", (void *) nodes[i], align_ptr, zmalloc_used_memory());
+        fprintf(stdout, "ptr:%p, align_ptr:%p, use mem:%8lu\n", (void *) nodes[i], align_ptr, ez_malloc_used_memory());
         ez_free(nodes[i]);
     }
-    fprintf(stdout, "ez_free over, use mem:%8lu\n", zmalloc_used_memory());
+    fprintf(stdout, "ez_free over, use mem:%8lu\n", ez_malloc_used_memory());
     fprintf(stdout, "------------------------------> test malloc <----------------------------------------\n");
     return 0;
 }

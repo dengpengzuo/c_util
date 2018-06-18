@@ -14,6 +14,7 @@
 #define __calloc(count,size)  calloc(count,size)
 #define __realloc(ptr,size)   realloc(ptr,size)
 #define __free(ptr)           free(ptr)
+#define __memalign(pptr, align, size)     posix_memalign(pptr, align, size)
 
 #include "ez_macro.h"
 #include "ez_atomic.h"
@@ -39,7 +40,7 @@ static void zmalloc_default_oom(size_t size)
 
 static zmalloc_oom_handler_t zmalloc_oom_handler = zmalloc_default_oom;
 
-void *zmalloc(size_t size)
+static void *zmalloc(size_t size)
 {
 	void *ptr = __malloc(size);
 
@@ -52,7 +53,7 @@ void *zmalloc(size_t size)
 	return ptr;
 }
 
-void *zcalloc(size_t count, size_t size)
+static void *zcalloc(size_t count, size_t size)
 {
 	size_t nSize = count * size;
 	void *ptr = __calloc(count, size);
@@ -65,7 +66,7 @@ void *zcalloc(size_t count, size_t size)
 	return ptr;
 }
 
-void *zrealloc(void *ptr, size_t size)
+static void *zrealloc(void *ptr, size_t size)
 {
 	size_t oldsize;
 	void *newptr;
@@ -82,7 +83,7 @@ void *zrealloc(void *ptr, size_t size)
 	return newptr;
 }
 
-void zfree(void *ptr)
+static void zfree(void *ptr)
 {
 	if (ptr == NULL)
 		return;
@@ -90,18 +91,18 @@ void zfree(void *ptr)
 	__free(ptr);
 }
 
-size_t zmalloc_used_memory(void)
+size_t ez_malloc_used_memory(void)
 {
 	uint64_t um = used_memory;
 	return (size_t) um;
 }
 
-void zmalloc_set_oom_handler(zmalloc_oom_handler_t oom_handler)
+void ezmalloc_set_oom_handler(zmalloc_oom_handler_t oom_handler)
 {
 	zmalloc_oom_handler = oom_handler;
 }
 
-void *_ez_malloc(size_t size, const char *name, int line)
+void *ez_malloc_lg(size_t size, const char *name, int line)
 {
 	void *p;
 
@@ -115,7 +116,7 @@ void *_ez_malloc(size_t size, const char *name, int line)
 	return p;
 }
 
-void *_ez_calloc(size_t num, size_t size, const char *name, int line)
+void *ez_calloc_lg(size_t num, size_t size, const char *name, int line)
 {
 	void *p;
 
@@ -130,7 +131,7 @@ void *_ez_calloc(size_t num, size_t size, const char *name, int line)
 	return p;
 }
 
-void *_ez_realloc(void *ptr, size_t size, const char *name, int line)
+void *ez_realloc_lg(void *ptr, size_t size, const char *name, int line)
 {
 	void *p;
 	// 要注意：如果size=0时，CLIB会执行free(ptr)，这样外部再free(ptr)时会报错
@@ -144,8 +145,23 @@ void *_ez_realloc(void *ptr, size_t size, const char *name, int line)
 	return p;
 }
 
-void _ez_free(void *ptr, const char *name, int line)
+void ez_free_lg(void *ptr, const char *name, int line)
 {
 	log_debug_x(name, line, "free(addr: %p)", ptr);
 	zfree(ptr);
+}
+
+void *ez_memalign_lg(size_t alignment, size_t size, const char *name, int line)
+{
+    void  *p = NULL;
+	int    err;
+
+	err = __memalign(&p, alignment, size);
+
+    if (p == NULL) {
+		log_error_x(name, line, "memalign(%zu, %zu) failed [err_Code:%d].", alignment, size, err);
+    } else {
+		log_debug_x(name, line, "memalign: %p %zu @%zu", p, size, alignment);
+	}
+    return p;
 }

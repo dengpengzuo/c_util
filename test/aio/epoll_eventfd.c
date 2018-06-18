@@ -168,7 +168,7 @@ int main(int argc, char *argv[]) {
             r = io_getevents(ctx, 1, NUM_EVENTS, events, &tms);
             if (r > 0) {
                 for (j = 0; j < r; ++j) {
-                    ((io_callback_t) (events[j].data))(ctx, events[j].obj, events[j].res, events[j].res2);
+                    ((io_callback_t)(uintptr_t)(events[j].data))(ctx, events[j].obj, events[j].res, events[j].res2);
                 }
                 i += r;
                 finished_aio -= r;
