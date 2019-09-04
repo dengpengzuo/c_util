@@ -113,7 +113,7 @@ size_t ez_utf8_decode(wchar_t *dst, const uint8_t *src, size_t n) {
             uint32_t bit = left_bits(src[i]);
             if (bit == 2) {
                 dst[c] = (wchar_t) (src[i++] & 0x1F);
-                dst[c] = (dst[c] << 5) | (u_short) (src[i++] & 0x3F);
+                dst[c] = (dst[c] << 5) | (wchar_t) (src[i++] & 0x3F);
                 c++;
             } else if (bit == 3) {
                 dst[c] = (wchar_t) (src[i++] & 0xF);
