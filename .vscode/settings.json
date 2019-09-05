@@ -1,2 +1,10 @@
 {
+    "files.associations": {
+        "malloc.h": "c",
+        "jemalloc.h": "c",
+        "ez_macro.h": "c",
+        "ez_atomic.h": "c",
+        "ez_log.h": "c",
+        "ez_malloc.h": "c"
+    }
 }

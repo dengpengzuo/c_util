@@ -1,5 +1,9 @@
 #include <stdint.h>
+#include <stddef.h>
 #include "ez_hash.h"
+#include "ez_list.h"
+#include "ez_malloc.h"
+#include "ez_macro.h"
 
 // google code's provider MurmurHash3
 // Block read - if your platform needs to do endian-swapping or can only
@@ -364,4 +368,61 @@ void MurmurHash3_x64_128(const void *key, const int len, const uint32_t seed, ui
 
     out[0] = h1;
     out[1] = h2;
+}
+
+typedef struct hash_item_s {
+    void *key;
+    void *val;
+    list_head_t listNode;    /* time events list node */
+} hash_item_t;
+
+struct hash_s {
+    uint32_t bucket;
+    uint32_t size;
+    list_head_t head[0];
+};
+
+hash_t *hash_create(uint32_t bucket) {
+    hash_t *h = (hash_t *) ez_malloc(sizeof(struct hash_s) + bucket * sizeof(list_head_t));
+    h->bucket = bucket;
+    h->size = 0;
+    for (int i = 0; i < bucket; ++i) {
+        init_list_head(&(h->head[i]));
+    }
+    return h;
+}
+
+static int hash_index(const void *key) {
+    return 0;
+}
+
+static int hash_key_compare(const void *k1, const void *k2) {
+    return 1;
+}
+
+int hash_put(const hash_t *h, const void *key, const void *val) {
+    int i = hash_index(key);
+    hash_item_t s = {
+            .key = (void *) key,
+            .val = (void *) val
+    };
+    list_add(&s.listNode, (list_head_t *) &(h->head[i]));
+    return 0;
+}
+
+void *hash_get(const hash_t *h, const void *key) {
+    int i = hash_index(key);
+    void *val = NULL;
+    LIST_FOR(&(h->head[i]), ti) {
+        hash_item_t *s = EZ_CONTAINER_OF(ti, hash_item_t, listNode);
+        if (hash_key_compare(s->key, key)) {
+            val = s->val;
+            break;
+        }
+    }
+    return val;
+}
+
+int hash_del(const hash_t *h, const void *key) {
+    return 0;
 }
