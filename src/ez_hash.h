@@ -16,12 +16,12 @@ void MurmurHash3_x64_128(const void *key, int len, uint32_t seed, uint64_t *out)
 
 typedef struct hash_s hash_t;
 
-hash_t *hash_create(uint32_t bucket);
+hash_t *hash_create();
 
-int hash_put(const hash_t *h, const void *key, const void *val);
+int hash_put(const hash_t *h, const void *key, int len, const void *val);
 
-void *hash_get(const hash_t *h, const void *key);
+void *hash_get(const hash_t *h, const void *key, int len);
 
-int hash_del(const hash_t *h, const void *key);
+int hash_del(const hash_t *h, const void *key, int len);
 
 #endif                /* __EZ_HASH_H */

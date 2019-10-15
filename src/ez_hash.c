@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stddef.h>
+#include <sys/param.h>
 #include "ez_hash.h"
 #include "ez_list.h"
 #include "ez_malloc.h"
@@ -370,59 +371,60 @@ void MurmurHash3_x64_128(const void *key, const int len, const uint32_t seed, ui
     out[1] = h2;
 }
 
+//========================================================================================================
+// hash.tab
+//
 typedef struct hash_item_s {
     void *key;
     void *val;
-    list_head_t listNode;    /* time events list node */
+    list_head_t listNode;
 } hash_item_t;
+
+const uint32_t HASH_ITEM_SIZE = 16;
 
 struct hash_s {
     uint32_t bucket;
-    uint32_t size;
-    list_head_t head[0];
+    hash_item_t array[0];
 };
 
-hash_t *hash_create(uint32_t bucket) {
-    hash_t *h = (hash_t *) ez_malloc(sizeof(struct hash_s) + bucket * sizeof(list_head_t));
-    h->bucket = bucket;
-    h->size = 0;
-    for (int i = 0; i < bucket; ++i) {
-        init_list_head(&(h->head[i]));
+hash_t *hash_create() {
+    hash_t *h = ez_malloc(sizeof(hash_t) + sizeof(hash_item_t) * HASH_ITEM_SIZE);
+    h->bucket = HASH_ITEM_SIZE;
+
+    for (int i = 0; i < h->bucket; ++i) {
+        init_list_head(&h->array[i].listNode);
     }
+
     return h;
 }
 
-static int hash_index(const void *key) {
+static uint32_t get_hash_index(const void *key, int len) {
+    return MurmurHash3_x86_32(key, len, 0);
+}
+
+int hash_put(const hash_t *h, const void *key, int len, const void *val) {
+    int index = get_hash_index(key, len) & (h->bucket - 1);
+    hash_item_t *e = &(h->array[index]);
+
+    hash_item_t *nv = ez_malloc(sizeof(hash_item_t));
+    nv->key = (void *) key;
+    nv->val = (void *) val;
+
+    list_add(&nv->listNode, &e->listNode);
+
     return 0;
 }
 
-static int hash_key_compare(const void *k1, const void *k2) {
-    return 1;
-}
-
-int hash_put(const hash_t *h, const void *key, const void *val) {
-    int i = hash_index(key);
-    hash_item_t s = {
-            .key = (void *) key,
-            .val = (void *) val
-    };
-    list_add(&s.listNode, (list_head_t *) &(h->head[i]));
-    return 0;
-}
-
-void *hash_get(const hash_t *h, const void *key) {
-    int i = hash_index(key);
-    void *val = NULL;
-    LIST_FOR(&(h->head[i]), ti) {
-        hash_item_t *s = EZ_CONTAINER_OF(ti, hash_item_t, listNode);
-        if (hash_key_compare(s->key, key)) {
-            val = s->val;
-            break;
-        }
+void *hash_get(const hash_t *h, const void *key, int len) {
+    int index = get_hash_index(key, len) & (h->bucket - 1);
+    hash_item_t *e = &(h->array[index]);
+    LIST_FOR(&e->listNode, i) {
+        hash_item_t *te = EZ_CONTAINER_OF(i, hash_item_t, listNode);
+        // 比较 (te->key, key)
     }
-    return val;
+    return NULL;
 }
 
-int hash_del(const hash_t *h, const void *key) {
+int hash_del(const hash_t *h, const void *key, int len) {
     return 0;
 }
