@@ -376,6 +376,7 @@ void MurmurHash3_x64_128(const void *key, const int len, const uint32_t seed, ui
 //
 typedef struct hash_item_s {
     void *key;
+    int len;
     void *val;
     list_head_t listNode;
 } hash_item_t;
@@ -398,16 +399,24 @@ hash_t *hash_create() {
     return h;
 }
 
-static uint32_t get_hash_index(const void *key, int len) {
+static uint32_t hashcode_key(const void *key, int len) {
     return MurmurHash3_x86_32(key, len, 0);
 }
 
+static int hash_compare_key(const void *key, int len, const void *find_key, int find_len) {
+    if (len != find_len) {
+        return 0;
+    }
+    return (key == find_key) ? 1 : 0;
+}
+
 int hash_put(const hash_t *h, const void *key, int len, const void *val) {
-    int index = get_hash_index(key, len) & (h->bucket - 1);
+    int index = hashcode_key(key, len) & (h->bucket - 1);
     hash_item_t *e = &(h->array[index]);
 
     hash_item_t *nv = ez_malloc(sizeof(hash_item_t));
     nv->key = (void *) key;
+    nv->len = len;
     nv->val = (void *) val;
 
     list_add(&nv->listNode, &e->listNode);
@@ -416,15 +425,30 @@ int hash_put(const hash_t *h, const void *key, int len, const void *val) {
 }
 
 void *hash_get(const hash_t *h, const void *key, int len) {
-    int index = get_hash_index(key, len) & (h->bucket - 1);
+    int index = hashcode_key(key, len) & (h->bucket - 1);
     hash_item_t *e = &(h->array[index]);
     LIST_FOR(&e->listNode, i) {
         hash_item_t *te = EZ_CONTAINER_OF(i, hash_item_t, listNode);
-        // 比较 (te->key, key)
+        // 比较 (te->key, key, len, len)
+        int r = hash_compare_key(te->key, te->len, key, len);
+        if (r) {
+            return te->val;
+        }
     }
     return NULL;
 }
 
 int hash_del(const hash_t *h, const void *key, int len) {
+    int index = hashcode_key(key, len) & (h->bucket - 1);
+    hash_item_t *e = &(h->array[index]);
+    LIST_FOR(&e->listNode, i) {
+        hash_item_t *te = EZ_CONTAINER_OF(i, hash_item_t, listNode);
+        // 比较 (te->key, key, len, len)
+        int r = hash_compare_key(te->key, te->len, key, len);
+        if (r) {
+            list_del(&te->listNode);
+            return 1;
+        }
+    }
     return 0;
 }
