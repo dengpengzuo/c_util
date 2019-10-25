@@ -381,33 +381,41 @@ typedef struct hash_item_s {
     list_head_t listNode;
 } hash_item_t;
 
-const uint32_t HASH_ITEM_SIZE = 16;
+const uint32_t HASH_MIN_ITEM_SIZE = 16;
+const uint32_t HASH_MAX_ITEM_SIZE = 1024;
 
 struct hash_s {
+    hash_compare_func compare_func;
     uint32_t bucket;
     hash_item_t array[0];
 };
 
-hash_t *hash_create() {
-    hash_t *h = ez_malloc(sizeof(hash_t) + sizeof(hash_item_t) * HASH_ITEM_SIZE);
-    h->bucket = HASH_ITEM_SIZE;
+static uint32_t hashcode_key(const void *key, int len) {
+    return MurmurHash3_x86_32(key, len, 0);
+}
+
+static int hash_default_compare_func(const void *key, int len, const void *find_key, int find_len) {
+    if (len != find_len) {
+        return 0;
+    }
+    return ((uintptr_t) key == (uintptr_t) find_key) ? 1 : 0;
+}
+
+hash_t *hash_create(hash_compare_func func, int buckets) {
+    if (func == NULL) {
+        func = hash_default_compare_func;
+    }
+    buckets = MAX(HASH_MIN_ITEM_SIZE, buckets);
+    buckets = MIN(HASH_MAX_ITEM_SIZE, buckets);
+    hash_t *h = ez_malloc(sizeof(hash_t) + sizeof(hash_item_t) * buckets);
+    h->compare_func = func;
+    h->bucket = (uint32_t) buckets;
 
     for (int i = 0; i < h->bucket; ++i) {
         init_list_head(&h->array[i].listNode);
     }
 
     return h;
-}
-
-static uint32_t hashcode_key(const void *key, int len) {
-    return MurmurHash3_x86_32(key, len, 0);
-}
-
-static int hash_compare_key(const void *key, int len, const void *find_key, int find_len) {
-    if (len != find_len) {
-        return 0;
-    }
-    return (key == find_key) ? 1 : 0;
 }
 
 int hash_put(const hash_t *h, const void *key, int len, const void *val) {
@@ -430,7 +438,7 @@ void *hash_get(const hash_t *h, const void *key, int len) {
     LIST_FOR(&e->listNode, i) {
         hash_item_t *te = EZ_CONTAINER_OF(i, hash_item_t, listNode);
         // 比较 (te->key, key, len, len)
-        int r = hash_compare_key(te->key, te->len, key, len);
+        int r = h->compare_func(te->key, te->len, key, len);
         if (r) {
             return te->val;
         }
@@ -438,17 +446,19 @@ void *hash_get(const hash_t *h, const void *key, int len) {
     return NULL;
 }
 
-int hash_del(const hash_t *h, const void *key, int len) {
+void *hash_del(const hash_t *h, const void *key, int len) {
+    void *v = NULL;
     int index = hashcode_key(key, len) & (h->bucket - 1);
     hash_item_t *e = &(h->array[index]);
     LIST_FOR(&e->listNode, i) {
         hash_item_t *te = EZ_CONTAINER_OF(i, hash_item_t, listNode);
         // 比较 (te->key, key, len, len)
-        int r = hash_compare_key(te->key, te->len, key, len);
+        int r = h->compare_func(te->key, te->len, key, len);
         if (r) {
+            v = te->val;
             list_del(&te->listNode);
-            return 1;
+            break;
         }
     }
-    return 0;
+    return v;
 }
