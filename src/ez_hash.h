@@ -16,14 +16,18 @@ void MurmurHash3_x64_128(const void *key, int len, uint32_t seed, uint64_t *out)
 
 typedef struct hash_s hash_t;
 
-typedef int (*hash_compare_func)(const void *key, int len, const void *find_key, int find_len);
+// key 比较函数
+typedef int (*hash_compare_func)(const void *key, const void *find_key);
 
-hash_t *hash_create(hash_compare_func func, int buckets);
+// key 的hash函数
+typedef uint32_t (*key_hash_func)(const void *key);
 
-int hash_put(const hash_t *h, const void *key, int len, const void *val);
+hash_t *hash_create(hash_compare_func func, key_hash_func key_func, int buckets);
 
-void *hash_get(const hash_t *h, const void *key, int len);
+int hash_put(const hash_t *h, const void *key, const void *val);
 
-void* hash_del(const hash_t *h, const void *key, int len);
+void *hash_get(const hash_t *h, const void *key);
+
+void* hash_del(const hash_t *h, const void *key);
 
 #endif                /* __EZ_HASH_H */
