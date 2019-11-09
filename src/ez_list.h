@@ -18,6 +18,9 @@ void list_foreach(list_head_t *head, void (*func)(list_head_t *entry));
 #define LIST_FOR(head, pos) \
     for (list_head_t * (pos) = (head)->next, *n = (pos)->next ; (pos) != head; (pos) = n, n = (pos)->next)
 
+#define LIST_FOR_R(head, pos) \
+    for (list_head_t * (pos) = (head)->prev, *n = (pos)->prev ; (pos) != head; (pos) = n, n = (pos)->prev)
+
 typedef enum {
     BREAK_EACH = 0,
     CONTINUE_EACH

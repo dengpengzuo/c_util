@@ -32,6 +32,10 @@ static int student_find_proc(ez_rbtree_node_t *node, void *find_args) {
     return o->age == age ? 0 : (o->age > age ? 1 : -1);
 }
 
+TEST(base, _world) {
+    fprintf(stdout, "error:::>find test_t 100 :>!\n");
+}
+
 TEST(base, _hello) {
     ez_rbtree_node_t *node = NULL;
     rbtree_init(&rbtree, &sentinel, student_compare_proc);
@@ -74,6 +78,7 @@ TEST(base, _hello) {
 int main(int argc, char **argv) {
     init_default_suite();
     SUITE_ADD_TEST(base, _hello);
+    SUITE_ADD_TEST(base, _world);
     run_default_suite();
     return 0;
 }
