@@ -3,6 +3,7 @@
 #include <ez_malloc.h>
 #include <ez_macro.h>
 #include <ez_util.h>
+#include <ez_test.h>
 
 #define NODES 100
 
@@ -31,7 +32,7 @@ static int student_find_proc(ez_rbtree_node_t *node, void *find_args) {
     return o->age == age ? 0 : (o->age > age ? 1 : -1);
 }
 
-int main(int argc, char **argv) {
+TEST(base, _hello) {
     ez_rbtree_node_t *node = NULL;
     rbtree_init(&rbtree, &sentinel, student_compare_proc);
 
@@ -68,5 +69,11 @@ int main(int argc, char **argv) {
     }
     fprintf(stdout, "ez_free over, use mem:%8lu\n", ez_malloc_used_memory());
     fprintf(stdout, "------------------------------> test malloc <----------------------------------------\n");
+}
+
+int main(int argc, char **argv) {
+    init_default_suite();
+    SUITE_ADD_TEST(base, _hello);
+    run_default_suite();
     return 0;
 }
