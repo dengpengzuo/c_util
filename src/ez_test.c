@@ -16,8 +16,8 @@ void run_default_suite() {
     test_suit_t *p;
     LIST_FOR_R(&default_suite, ti) {
         p = cast_to_test_suit(ti);
-        fprintf(stdout, "==== Test %s \n", p->name);
+        fprintf(stdout, "==== Test [%s] ... \n", p->name);
         p->func();
-        fprintf(stdout, "==== Test %s passed \n", p->name);
+        fprintf(stdout, "==== Test [%s] PASSED \n", p->name);
     }
 }
