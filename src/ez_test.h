@@ -3,7 +3,7 @@
 #define EZ_CUTIL_EZ_TEST_H
 
 #include "ez_list.h"
-#include "ez_macro.h"
+
 
 #define TCONCAT3(a, b, c)  TCONCAT3I(a, b, c)
 #define TCONCAT3I(a, b, c) a##b##c
@@ -24,10 +24,6 @@ void init_default_suite();
 void suite_add_test(test_suit_t *test);
 
 void run_default_suite();
-
-static inline test_suit_t *cast_to_test_suit(list_head_t *node) {
-    return EZ_CONTAINER_OF(node, test_suit_t, next);
-}
 
 #define TEST(B, N)                                   \
   static void TCONCAT3(B, N, _test)();               \
