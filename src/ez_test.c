@@ -18,20 +18,24 @@
 #define COL_BEGIN(B,C)  "\033["#B";"#C"m"
 #define COL_END         "\033[0m"
 
-static list_head_t default_suite;
+typedef struct test_suit_s {
+    list_head_t tests;
+} test_suit_t;
+
+static test_suit_t default_suite;
 
 void init_default_suite() {
-    init_list_head(&default_suite);
+    init_list_head(&default_suite.tests);
 }
 
-void suite_add_test(test_suit_t *test) {
-    list_add(&test->next, &default_suite);
+void suite_add_test(test_t *test) {
+    list_add(&test->next, &default_suite.tests);
 }
 
 void run_default_suite() {
-    test_suit_t *p;
-    LIST_FOR_R(&default_suite, ti) {
-        p = EZ_CONTAINER_OF(ti, test_suit_t, next);
+    test_t *p;
+    LIST_FOR_R(&default_suite.tests, ti) {
+        p = EZ_CONTAINER_OF(ti, test_t, next);
         fprintf(stdout, COL_BEGIN(40,34) "==== Test [%s] ..." COL_END "\n", p->name);
         p->func();
         fprintf(stdout, COL_BEGIN(40,34) "==== Test [%s] " COL_BEGIN(40, 32) "PASSED" COL_END "\n", p->name);
