@@ -2,6 +2,8 @@
 #ifndef EZ_NET_H
 #define EZ_NET_H
 
+#include <unistd.h>
+
 #define ANET_OK            0
 #define ANET_ERR          -1
 #define ANET_EAGAIN       (-EAGAIN)

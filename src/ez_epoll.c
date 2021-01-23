@@ -34,7 +34,7 @@ static int ezApiCreate(ez_event_loop_t * eventLoop)
 		ez_free(state);
 		return AE_ERR;
 	}
-	state->epfd = epoll_create(1024);	/* 1024 is just a hint for the kernel */
+	state->epfd = epoll_create1(EPOLL_CLOEXEC);	/* 1024 is just a hint for the kernel */
 	if (state->epfd == -1) {
 		ez_free(state->events);
 		ez_free(state);

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8.4)
 project(ez_cutil)
 
 set(CMAKE_VERBOSE_MAKEFILE off)
-set(CMAKE_C_FLAGS "-Wall -std=gnu99 -pedantic")
+set(CMAKE_C_FLAGS "-Wall -std=gnu11")
 
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 set(LIBRARY_OUTPUT_PATH    ${PROJECT_SOURCE_DIR}/lib)

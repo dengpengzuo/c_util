@@ -132,7 +132,7 @@ int main(int argc, char *argv[]) {
         return 6;
     }
 
-    epfd = epoll_create(1);
+    epfd = epoll_create1(EPOLL_CLOEXEC);
     if (epfd == -1) {
         perror("epoll_create");
         return 7;
