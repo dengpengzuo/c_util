@@ -30,7 +30,32 @@ void signal_quit_handler(struct ez_signal *sig) {
 }
 
 void echo_client_handler(ez_event_loop_t *eventLoop, int c, void *data, int mask) {
+    EZ_NOTUSED(eventLoop);
+    EZ_NOTUSED(data);
+    EZ_NOTUSED(mask);
+    char buf[256];
+    size_t size = 255;
+    ssize_t rs;
 
+    int r = ez_net_read(c, &buf[0], size, &rs);
+    log_debug("server read client [fd:%d] %d bytes, result: %d ", c, rs, r);
+
+    if (r == ANET_OK && rs == 0) {
+        // ez_event 会在 client 端close也引发 AE_READABLE 事件，
+        log_info("client [%d] 已经关闭.", c);
+        ez_delete_file_event(eventLoop, c, AE_READABLE);
+
+    } else if (r == ANET_ERR) {
+        log_info("client [%d] > read error:[%d,%s]!", c, errno, strerror(errno));
+
+    } else if (rs > 0) {
+        // 读取了 nread.
+        log_hexdump(LOG_DEBUG, buf, rs, "client [%d] > read data %d bytes!", c, rs);
+
+        size = rs;
+        r = ez_net_write(c, &buf[0], size, &rs);
+        log_debug("server write client [fd:%d] %d bytes, result: %d ", c, rs, r);
+    }
 }
 
 void accept_handler(ez_event_loop_t *eventLoop, int s, void *data, int mask) {
@@ -64,7 +89,7 @@ void run_echo_server(server_t *svr) {
 }
 
 client_t *new_client_array(int size) {
-    client_t *c= ez_malloc(sizeof(client_t) + sizeof(int) * size);
+    client_t *c = ez_malloc(sizeof(client_t) + sizeof(int) * size);
     c->len = 0;
     c->cap = size;
     return c;
@@ -81,7 +106,7 @@ int main(int argc, char **argv) {
     EZ_NOTUSED(argv);
 
     cust_signal_init();
-    log_init(LOG_INFO, NULL);
+    log_init(LOG_DEBUG, NULL);
 
     server = ez_malloc(sizeof(server_t));
     server->addr = addr;

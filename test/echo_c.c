@@ -45,22 +45,20 @@ int wait_quit(int c) {
         else if (strcmp(cmd, "help") == 0) {
             log_info(
                     "help   - help \n"
-                    "sclose - client send 'server close socket' cmd\n"
                     "close  - client active close client socket\n"
                     "exit   - client exit.\n"
                     "send   - client send 16 bytes data.\n"
                     "recv   - client recv data.\n");
             continue;
-        } else if (strcmp(cmd, "sclose") == 0) {
-            r = ez_net_write(c, cmd, strlen(cmd), &nwrite);
-            log_info("client %d > 要求服务器主动关闭 (Send: %li bytes, Result:%d)", c, nwrite, r);
-            continue;
         } else if (strcmp(cmd, "close") == 0) {
             log_info("client %d > 客户端主动关闭 ", c);
             ez_net_close_socket(c);
+            c = 0;
             continue;
         } else if (strcmp(cmd, "exit") == 0) {
-            ez_net_close_socket(c);
+            if (c != 0) {
+                ez_net_close_socket(c);
+            }
             break;
         } else if (strcmp(cmd, "send") == 0) {
             r = ez_net_write(c, buf, sizeof(buf), &nwrite);
