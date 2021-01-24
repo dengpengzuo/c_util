@@ -6,6 +6,7 @@
 #include <ez_malloc.h>
 #include <ez_rbtree.h>
 #include <ez_util.h>
+#include <ez_bytebuf.h>
 #include "cust_sign.h"
 
 typedef struct client_s {
@@ -13,9 +14,7 @@ typedef struct client_s {
     int              mask; // see @EVENT_MASK
     uint64_t         create_time;
     uint64_t         lastrec_time;
-    char             buf[256];
-    ssize_t          rpos;
-    ssize_t          wpos;
+    bytebuf_t        *buf;
     ez_rbtree_node_t rbnode;
 } client_t;
 
@@ -48,26 +47,23 @@ void echo_client_handler(ez_event_loop_t *eventLoop, int c, void *data, int mask
     client_t *client = (client_t*)data;
     EZ_NOTUSED(mask);
 
-    int r = ez_net_read(client->fd, client->buf, 256, &client->rpos);
-    log_debug("server read client [fd:%d] %d bytes, result: %d ", client->fd, client->rpos, r);
+    ssize_t nbytes;
+    int r = ez_net_read_bf(client->fd, client->buf, &nbytes);
+    log_debug("server read client [fd:%d] %d bytes, result: %d ", client->fd, nbytes, r);
 
-    if (r == ANET_OK && client->rpos == 0) {
+    if (r == ANET_OK && nbytes == 0) {
         log_info("client [%d] 已经关闭.", client->fd);
         ez_delete_file_event(eventLoop, client->fd, client->mask);
         rbtree_delete(&server->rb_clients, &client->rbnode);
+        free_bytebuf(client->buf);
+        ez_free(client);
 
     } else if (r == ANET_ERR) {
         log_info("client [%d] > read error:[%d,%s]!", c, errno, strerror(errno));
 
-    } else if (client->rpos > 0) {
-        // 读取了 nread.
-        log_hexdump(LOG_DEBUG, client->buf, client->rpos, "client [%d] > read data %d bytes!", client->fd, client->rpos);
-
-        r = ez_net_write(client->fd, client->buf, client->rpos, &client->wpos);
-        log_debug("server write client [fd:%d] %d bytes, result: %d ", client->fd, client->wpos, r);
-        // todo: 后期实现 rw_buf.
-        client->rpos = 0;
-        client->wpos = 0;
+    } else if (nbytes > 0) {
+        r = ez_net_write_bf(client->fd, client->buf, &nbytes);
+        log_debug("server write client [fd:%d] %d bytes, result: %d ", client->fd, nbytes, r);
     }
 }
 
@@ -92,6 +88,7 @@ void accept_handler(ez_event_loop_t *eventLoop, int s, void *data, int mask) {
     client->mask = AE_READABLE;
     client->create_time = mstime();
     client->lastrec_time = client->create_time;
+    client->buf = new_bytebuf(256);
     rbtree_insert(&server->rb_clients, &client->rbnode);
 
     if (ez_create_file_event(server->ez_loop, client->fd, client->mask, &echo_client_handler, (void*)client) == AE_ERR) {

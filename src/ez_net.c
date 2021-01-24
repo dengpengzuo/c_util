@@ -691,26 +691,26 @@ int ez_net_socket_name(int fd, char *ip, size_t ip_len, int *port)
 	return 0;
 }
 
-int ez_net_read_bf(int fd, bytebuf_t *buf)
+int ez_net_read_bf(int fd, bytebuf_t *buf, ssize_t * nbytes)
 {
     size_t size = bytebuf_writable_size(buf);
     uint8_t *p = bytebuf_writable_pos(buf);
-    ssize_t nbytes = 0;
-    int r = ez_net_read(fd, (char *) p, size, &nbytes);
+    *nbytes = 0;
+    int r = ez_net_read(fd, (char *) p, size, nbytes);
     if (r == ANET_OK) {
-        buf->w += nbytes;
+        buf->w += *nbytes;
     }
     return r;
 }
 
-int ez_net_write_bf(int fd, bytebuf_t *buf)
+int ez_net_write_bf(int fd, bytebuf_t *buf, ssize_t * nbytes)
 {
     size_t size = bytebuf_readable_size(buf);
     uint8_t *p = bytebuf_readable_pos(buf);
-    ssize_t nbytes = 0;
-    int r = ez_net_write(fd, (char *) p, size, &nbytes);
+    *nbytes = 0;
+    int r = ez_net_write(fd, (char *) p, size, nbytes);
     if (r == ANET_OK) {
-        buf->r += nbytes;
+        buf->r += *nbytes;
     }
     return r;
 }

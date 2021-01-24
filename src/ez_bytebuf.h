@@ -2,6 +2,7 @@
 #define EZ_BYTEBUF_H
 
 #include <stdint.h>
+//
 // netty bytebuf
 //
 typedef struct bytebuf_s {
@@ -12,6 +13,8 @@ typedef struct bytebuf_s {
 } bytebuf_t;
 
 bytebuf_t *new_bytebuf(int size);
+
+void free_bytebuf(bytebuf_t *b) ;
 
 // 可以写入buf的字节数
 #define bytebuf_writable_size(b)  (b->cap - b->w)

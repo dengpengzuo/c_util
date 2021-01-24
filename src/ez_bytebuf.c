@@ -9,3 +9,7 @@ bytebuf_t *new_bytebuf(int size) {
     b->r = b->w = 0;
     return b;
 }
+
+void free_bytebuf(bytebuf_t *b) {
+    ez_free(b);
+}
