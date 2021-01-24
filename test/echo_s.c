@@ -4,23 +4,37 @@
 #include <ez_log.h>
 #include <ez_event.h>
 #include <ez_malloc.h>
+#include <ez_rbtree.h>
+#include <ez_util.h>
 #include "cust_sign.h"
 
 typedef struct client_s {
-    int len;
-    int cap;
-    int fds[0];
+    int              fd;
+    int              mask; // see @EVENT_MASK
+    uint64_t         create_time;
+    uint64_t         lastrec_time;
+    char             buf[256];
+    ssize_t          rpos;
+    ssize_t          wpos;
+    ez_rbtree_node_t rbnode;
 } client_t;
 
 typedef struct server_s {
-    char *addr;
-    int port;
-    int s;
+    char            *addr;
+    int              port;
+    int              fd;
     ez_event_loop_t *ez_loop;
-    client_t *clients;
+    ez_rbtree_t      rb_clients;
+    ez_rbtree_node_t rb_sentinel;
 } server_t;
 
-static server_t *server = NULL;
+static int client_compare_proc(ez_rbtree_node_t *new_node, ez_rbtree_node_t *exists_node) {
+    client_t *n = EZ_CONTAINER_OF(new_node, client_t, rbnode);
+    client_t *o = EZ_CONTAINER_OF(exists_node, client_t, rbnode);
+    return n->fd == o->fd ? 0 : (n->fd > o->fd ? 1 : -1);
+}
+
+extern server_t *server;
 
 void signal_quit_handler(struct ez_signal *sig) {
     EZ_NOTUSED(sig);
@@ -30,40 +44,40 @@ void signal_quit_handler(struct ez_signal *sig) {
 }
 
 void echo_client_handler(ez_event_loop_t *eventLoop, int c, void *data, int mask) {
-    EZ_NOTUSED(eventLoop);
-    EZ_NOTUSED(data);
+    EZ_NOTUSED(c);
+    client_t *client = (client_t*)data;
     EZ_NOTUSED(mask);
-    char buf[256];
-    size_t size = 255;
-    ssize_t rs;
 
-    int r = ez_net_read(c, &buf[0], size, &rs);
-    log_debug("server read client [fd:%d] %d bytes, result: %d ", c, rs, r);
+    int r = ez_net_read(client->fd, client->buf, 256, &client->rpos);
+    log_debug("server read client [fd:%d] %d bytes, result: %d ", client->fd, client->rpos, r);
 
-    if (r == ANET_OK && rs == 0) {
-        // ez_event 会在 client 端close也引发 AE_READABLE 事件，
-        log_info("client [%d] 已经关闭.", c);
-        ez_delete_file_event(eventLoop, c, AE_READABLE);
+    if (r == ANET_OK && client->rpos == 0) {
+        log_info("client [%d] 已经关闭.", client->fd);
+        ez_delete_file_event(eventLoop, client->fd, client->mask);
+        rbtree_delete(&server->rb_clients, &client->rbnode);
 
     } else if (r == ANET_ERR) {
         log_info("client [%d] > read error:[%d,%s]!", c, errno, strerror(errno));
 
-    } else if (rs > 0) {
+    } else if (client->rpos > 0) {
         // 读取了 nread.
-        log_hexdump(LOG_DEBUG, buf, rs, "client [%d] > read data %d bytes!", c, rs);
+        log_hexdump(LOG_DEBUG, client->buf, client->rpos, "client [%d] > read data %d bytes!", client->fd, client->rpos);
 
-        size = rs;
-        r = ez_net_write(c, &buf[0], size, &rs);
-        log_debug("server write client [fd:%d] %d bytes, result: %d ", c, rs, r);
+        r = ez_net_write(client->fd, client->buf, client->rpos, &client->wpos);
+        log_debug("server write client [fd:%d] %d bytes, result: %d ", client->fd, client->wpos, r);
+        // todo: 后期实现 rw_buf.
+        client->rpos = 0;
+        client->wpos = 0;
     }
 }
 
 void accept_handler(ez_event_loop_t *eventLoop, int s, void *data, int mask) {
     EZ_NOTUSED(eventLoop);
-    EZ_NOTUSED(data);
+    EZ_NOTUSED(s);
+    server_t *server = (server_t*) data;
     EZ_NOTUSED(mask);
 
-    int c = ez_net_unix_accept(s);
+    int c = ez_net_unix_accept(server->fd);
     if (c < ANET_OK) {
         return;
     }
@@ -73,9 +87,17 @@ void accept_handler(ez_event_loop_t *eventLoop, int s, void *data, int mask) {
     ez_net_tcp_enable_nodelay(c);
     ez_net_tcp_keepalive(c, 300);
 
-    if (ez_create_file_event(server->ez_loop, c, AE_READABLE, echo_client_handler, NULL) == AE_ERR) {
-        log_error("server add new client [fd:%d](AE_READABLE) failed!", c);
-        ez_net_close_socket(c);
+    client_t *client = ez_malloc(sizeof(client_t));
+    client->fd = c;
+    client->mask = AE_READABLE;
+    client->create_time = mstime();
+    client->lastrec_time = client->create_time;
+    rbtree_insert(&server->rb_clients, &client->rbnode);
+
+    if (ez_create_file_event(server->ez_loop, client->fd, client->mask, &echo_client_handler, (void*)client) == AE_ERR) {
+        log_error("server add client [fd:%d](AE_READABLE) failed!", c);
+        ez_net_close_socket(client->fd);
+        ez_free(client);
         return;
     }
 
@@ -83,21 +105,12 @@ void accept_handler(ez_event_loop_t *eventLoop, int s, void *data, int mask) {
 }
 
 void run_echo_server(server_t *svr) {
-    log_info("server %d bind %s:%d wait client ...", svr->s, svr->addr, svr->port);
-    ez_create_file_event(svr->ez_loop, svr->s, AE_READABLE, &accept_handler, NULL);
+    log_info("server %d bind %s:%d wait client ...", svr->fd, svr->addr, svr->port);
+    ez_create_file_event(svr->ez_loop, svr->fd, AE_READABLE, &accept_handler, svr);
     ez_run_event_loop(svr->ez_loop);
 }
 
-client_t *new_client_array(int size) {
-    client_t *c = ez_malloc(sizeof(client_t) + sizeof(int) * size);
-    c->len = 0;
-    c->cap = size;
-    return c;
-}
-
-void free_client_array(client_t *client) {
-    ez_free(client);
-}
+server_t *server = NULL;
 
 int main(int argc, char **argv) {
     char *addr = NULL;
@@ -112,16 +125,15 @@ int main(int argc, char **argv) {
     server->addr = addr;
     server->port = port;
     server->ez_loop = ez_create_event_loop(1024);
-    server->clients = new_client_array(1024);
+    rbtree_init(&server->rb_clients, &server->rb_sentinel, &client_compare_proc);
 
-    server->s = ez_net_tcp_server(server->port, server->addr, 1024);
-    if (server->s > 0) {
-        run_echo_server(server);
-        ez_net_close_socket(server->s);
-    }
+    server->fd = ez_net_tcp_server(server->port, server->addr, 1024);
 
+    run_echo_server(server);
+
+    ez_net_close_socket(server->fd);
     ez_delete_event_loop(server->ez_loop);
-    free_client_array(server->clients);
+
     ez_free(server);
     log_release();
     return 0;
