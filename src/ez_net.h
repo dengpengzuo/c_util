@@ -3,6 +3,7 @@
 #define EZ_NET_H
 
 #include <unistd.h>
+#include "ez_bytebuf.h"
 
 #define ANET_OK            0
 #define ANET_ERR          -1
@@ -42,6 +43,9 @@ int ez_net_tcp_connect_non_block(const char *addr, int port);
  */
 int ez_net_read(int fd, char *buf, size_t bufsize, ssize_t *nbytes);
 int ez_net_write(int fd, char *buf, size_t bufsize, ssize_t *nbytes);
+
+int ez_net_read_bf(int fd, bytebuf_t *buf);
+int ez_net_write_bf(int fd, bytebuf_t *buf);
 
 /* socket option */
 int ez_net_set_send_buf_size(int fd, int bufsize);

@@ -10,7 +10,7 @@ set(SRC_LIST
         ez_daemon.c ez_event.c ez_net.c
         ez_hash.c ez_log.c ez_malloc.c ez_util.c
         ez_rbtree.c ez_list.c ez_rwlock.c ez_string.c
-        ez_test.c
+        ez_test.c ez_bytebuf.c
 )
 
 # static library
