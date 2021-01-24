@@ -14,6 +14,10 @@ void free_bytebuf(bytebuf_t *b) {
     ez_free(b);
 }
 
+void bytebuf_clear(bytebuf_t *b) {
+    b->r = b->w = 0;
+}
+
 void bytebuf_write_int8(bytebuf_t *b, int8_t val) {
     b->data[b->w] = val;
     b->w++;

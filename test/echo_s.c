@@ -10,20 +10,20 @@
 #include "cust_sign.h"
 
 typedef struct client_s {
-    int              fd;
-    int              mask; // see @EVENT_MASK
-    uint64_t         create_time;
-    uint64_t         lastrec_time;
-    bytebuf_t        *buf;
+    int fd;
+    int mask; // see @EVENT_MASK
+    uint64_t create_time;
+    uint64_t lastrec_time;
+    bytebuf_t *buf;
     ez_rbtree_node_t rbnode;
 } client_t;
 
 typedef struct server_s {
-    char            *addr;
-    int              port;
-    int              fd;
+    char *addr;
+    int port;
+    int fd;
     ez_event_loop_t *ez_loop;
-    ez_rbtree_t      rb_clients;
+    ez_rbtree_t rb_clients;
     ez_rbtree_node_t rb_sentinel;
 } server_t;
 
@@ -44,7 +44,7 @@ void signal_quit_handler(struct ez_signal *sig) {
 
 void echo_client_handler(ez_event_loop_t *eventLoop, int c, void *data, int mask) {
     EZ_NOTUSED(c);
-    client_t *client = (client_t*)data;
+    client_t *client = (client_t *) data;
     EZ_NOTUSED(mask);
 
     ssize_t nbytes;
@@ -64,13 +64,14 @@ void echo_client_handler(ez_event_loop_t *eventLoop, int c, void *data, int mask
     } else if (nbytes > 0) {
         r = ez_net_write_bf(client->fd, client->buf, &nbytes);
         log_debug("server write client [fd:%d] %d bytes, result: %d ", client->fd, nbytes, r);
+        bytebuf_clear(client->buf);
     }
 }
 
 void accept_handler(ez_event_loop_t *eventLoop, int s, void *data, int mask) {
     EZ_NOTUSED(eventLoop);
     EZ_NOTUSED(s);
-    server_t *server = (server_t*) data;
+    server_t *server = (server_t *) data;
     EZ_NOTUSED(mask);
 
     int c = ez_net_unix_accept(server->fd);
@@ -91,7 +92,8 @@ void accept_handler(ez_event_loop_t *eventLoop, int s, void *data, int mask) {
     client->buf = new_bytebuf(256);
     rbtree_insert(&server->rb_clients, &client->rbnode);
 
-    if (ez_create_file_event(server->ez_loop, client->fd, client->mask, &echo_client_handler, (void*)client) == AE_ERR) {
+    if (ez_create_file_event(server->ez_loop, client->fd, client->mask, &echo_client_handler, (void *) client) ==
+        AE_ERR) {
         log_error("server add client [fd:%d](AE_READABLE) failed!", c);
         ez_net_close_socket(client->fd);
         rbtree_delete(&server->rb_clients, &client->rbnode);

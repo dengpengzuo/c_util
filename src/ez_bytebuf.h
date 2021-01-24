@@ -16,6 +16,9 @@ bytebuf_t *new_bytebuf(int size);
 
 void free_bytebuf(bytebuf_t *b) ;
 
+void bytebuf_clear(bytebuf_t *b);
+
+// =====================================================================
 // 可以写入buf的字节数
 #define bytebuf_writable_size(b)  (b->cap - b->w)
 
@@ -34,6 +37,7 @@ void free_bytebuf(bytebuf_t *b) ;
 // reader index
 #define bytebuf_reader_index(b)   (b->r)
 
+// =====================================================================
 // bytebuf 写入 int8_t
 void bytebuf_write_int8(bytebuf_t *b, int8_t val);
 
