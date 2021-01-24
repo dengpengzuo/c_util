@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <sys/time.h>
 
+#include "ez_malloc.h"
 #include "ez_log.h"
 #include "ez_util.h"
 
@@ -236,5 +237,12 @@ ssize_t ez_read_file(const char *file_name, uint8_t *buf, size_t len) {
         size = 0;
     }
     return size;
+}
+
+bytebuf_t *new_bytebuf(int size) {
+    bytebuf_t *b = ez_malloc(sizeof(bytebuf_t) + size);
+    b->cap = size;
+    b->r = b->w = 0;
+    return b;
 }
 
