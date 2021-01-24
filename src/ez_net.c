@@ -593,31 +593,48 @@ int ez_net_resolve_host_ip(char *host, char *ipbuf, size_t ipbuf_len)
 int ez_net_read(int fd, char *buf, size_t bufsize, ssize_t * nbytes)
 {
 	int ezerrno;
-	ssize_t r = recv(fd, buf, bufsize, 0);
+	ssize_t r = read(fd, buf, bufsize);
 	if (r == 0) {
 		*nbytes = 0;
-	} else if (r < 0) {
-		*nbytes = 0;
-		ezerrno = errno;
-		// linux define EWOULDBLOCK EAGAIN.
-		if (ezerrno == EAGAIN || ezerrno == EINTR /*|| ezerrno == EWOULDBLOCK */)
-			return ANET_EAGAIN;	/* 非阻塞模式 */
-		else
-			return ANET_ERR;
-	} else {
+        ezerrno = errno;
+        if (ezerrno == EAGAIN)
+            return ANET_EAGAIN; // 才能继续读
+        else if (ezerrno == EINTR)
+            return ANET_EINTR;
+        else
+            return ANET_OK;
+	} else if (r > 0) {
 		*nbytes = r;
+        return ANET_OK;
+	} else {
+        *nbytes = 0;
+        ezerrno = errno;
+ 		// linux define EWOULDBLOCK EAGAIN.
+ 		if (ezerrno == EAGAIN || ezerrno == EINTR /*|| ezerrno == EWOULDBLOCK */)
+ 			return ANET_EAGAIN;	/* 非阻塞模式 */
+ 		else
+ 			return ANET_ERR;
 	}
-	return ANET_OK;
 }
 
 /* NonBlock net_read & net_write */
 int ez_net_write(int fd, char *buf, size_t bufsize, ssize_t * nbytes)
 {
 	int ezerrno;
-	ssize_t r = send(fd, buf, bufsize, 0);
+	ssize_t r = write(fd, buf, bufsize);
 	if (r == 0) {
 		*nbytes = 0;
-	} else if (r < 0) {
+		ezerrno = errno;
+		if (ezerrno == EAGAIN)
+			return ANET_EAGAIN; // 才能继续写
+		else if (ezerrno == EINTR)
+            return ANET_EINTR;
+		else
+			return ANET_OK;
+    } else if (r > 0) {
+        *nbytes = r;
+        return ANET_OK;
+    } else {
 		*nbytes = 0;
 		ezerrno = errno;
 		// linux define EWOULDBLOCK EAGAIN.
@@ -625,10 +642,7 @@ int ez_net_write(int fd, char *buf, size_t bufsize, ssize_t * nbytes)
 			return ANET_EAGAIN;	/* 非阻塞模式 */
 		else
 			return ANET_ERR;
-	} else {
-		*nbytes = r;
 	}
-	return ANET_OK;
 }
 
 int ez_net_peer_name(int fd, char *ip, size_t ip_len, int *port)

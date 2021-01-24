@@ -8,6 +8,7 @@
 #define ANET_OK            0
 #define ANET_ERR          -1
 #define ANET_EAGAIN       (-EAGAIN)
+#define ANET_EINTR        (-EINTR)
 
 const char * socket_family_name(int sf);
 const char * socket_socktype_name(int st);

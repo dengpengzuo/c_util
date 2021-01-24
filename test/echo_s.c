@@ -51,20 +51,21 @@ void echo_client_handler(ez_event_loop_t *eventLoop, int c, void *data, int mask
     int r = ez_net_read_bf(client->fd, client->buf, &nbytes);
     log_debug("server read client [fd:%d] %d bytes, result: %d ", client->fd, nbytes, r);
 
-    if (r == ANET_OK && nbytes == 0) {
-        log_info("client [%d] 已经关闭.", client->fd);
-        ez_delete_file_event(eventLoop, client->fd, client->mask);
-        rbtree_delete(&server->rb_clients, &client->rbnode);
-        free_bytebuf(client->buf);
-        ez_free(client);
-
-    } else if (r == ANET_ERR) {
-        log_info("client [%d] > read error:[%d,%s]!", c, errno, strerror(errno));
-
-    } else if (nbytes > 0) {
+    if (r == ANET_EAGAIN && nbytes == 0) {
+        // 继续下次读取
+    } else if (r == ANET_OK && nbytes > 0) {
+        // 有数据可读
         r = ez_net_write_bf(client->fd, client->buf, &nbytes);
         log_debug("server write client [fd:%d] %d bytes, result: %d ", client->fd, nbytes, r);
         bytebuf_clear(client->buf);
+    } else {
+        // socket出现问题,已经无法读取.
+        log_info("client [%d] 已经关闭. erro:[%s]", client->fd, strerror(errno));
+        ez_delete_file_event(eventLoop, client->fd, client->mask);
+        ez_net_close_socket(client->fd);
+        rbtree_delete(&server->rb_clients, &client->rbnode);
+        free_bytebuf(client->buf);
+        ez_free(client);
     }
 }
 
