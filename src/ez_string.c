@@ -56,16 +56,14 @@ int ez_snprintf(char *buf, size_t size, const char *fmt, ...) {
     return i;
 }
 
-/*
+/*-----------------------+-----------------------------------------------------------------------------
     0000 0000->0000 007F | 0xxxxxxx                             // 7  位有效位.
     0000 0080->0000 07FF | 110xxxxx 10xxxxxx                    // 11 位有效位.
     0000 0800->0000 FFFF | 1110xxxx 10xxxxxx 10xxxxxx           // 16 位有效位.
-    0001 0000->0010 FFFF | 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx  // 21 位有效位.  TODO:?? 按理是 0x1f_FFFF
-    ---------------------+-----------------------------------------------------------------------------
-    0020 0000->03ff ffff | 111110xx 10xxxxxx 10xxxxxx 10xxxxxx 10xxxxxx // 26 位有效位.
-    0400 0000->7fff ffff | 1111110x 10xxxxxx 10xxxxxx 10xxxxxx 10xxxxxx 10xxxxxx // 31 位有效位.
-    ---------------------+-----------------------------------------------------------------------------
-*/
+      + 0800->D7FF
+      + E000->FFFF
+    0001 0000->0010 FFFF | 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx  // 21 位有效位.
+  -----------------------+----------------------------------------------------------------------------- */
 size_t ez_utf8_encode(uint8_t *dst, const wchar_t *src, size_t n) {
     size_t c = 0;
     for (size_t i = 0; i < n; ++i) {
@@ -73,11 +71,11 @@ size_t ez_utf8_encode(uint8_t *dst, const wchar_t *src, size_t n) {
             dst[c++] = (uint8_t) src[i++] ;
         } else if (src[i] >= 0x80 && src[i] <= 0x07FF) {
             dst[c++] = (uint8_t) (0xC0 | ((src[i] >> 6) & 0x1F)); // 高5位 -> 1_1111
-            dst[c++] = (uint8_t) (0x80 | (src[i] & 0x3F));         // 低6位 -> 11_1111
+            dst[c++] = (uint8_t) (0x80 | (src[i] & 0x3F));        // 低6位 -> 11_1111
         } else if (src[i] >= 0x800 && src[i] <= 0xFFFF) {
             dst[c++] = (uint8_t) (0xE0 | ((src[i] >> 12) & 0xF)); // 高4位 -> 1111
-            dst[c++] = (uint8_t) (0x80 | ((src[i] >> 6) & 0x3F));  // 6位
-            dst[c++] = (uint8_t) (0x80 | (src[i] & 0x3F));         // 6位
+            dst[c++] = (uint8_t) (0x80 | ((src[i] >> 6) & 0x3F)); // 6位
+            dst[c++] = (uint8_t) (0x80 | (src[i] & 0x3F));        // 6位
         } else if (src[i] >= 0x10000 && src[i] <= 0x10FFFF) {
             dst[c++] = (uint8_t) (0xF0 | ((src[i] >> 18) & 0x7)); // 高3位 -> 111
             dst[c++] = (uint8_t) (0x80 | ((src[i] >> 12) & 0x3F));// 6位
