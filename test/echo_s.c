@@ -94,6 +94,8 @@ void accept_handler(ez_event_loop_t *eventLoop, int s, void *data, int mask) {
     if (ez_create_file_event(server->ez_loop, client->fd, client->mask, &echo_client_handler, (void*)client) == AE_ERR) {
         log_error("server add client [fd:%d](AE_READABLE) failed!", c);
         ez_net_close_socket(client->fd);
+        rbtree_delete(&server->rb_clients, &client->rbnode);
+        free_bytebuf(client->buf);
         ez_free(client);
         return;
     }
