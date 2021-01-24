@@ -703,7 +703,7 @@ int ez_net_socket_name(int fd, char *ip, size_t ip_len, int *port)
 
 int ez_net_read_bf(int fd, bytebuf_t *buf, ssize_t * nbytes)
 {
-    size_t size = bytebuf_writable_size(buf);
+    size_t size = bytebuf_writeable_size(buf);
     uint8_t *p = bytebuf_writer_pos(buf);
     *nbytes = 0;
     int r = ez_net_read(fd, (char *) p, size, nbytes);

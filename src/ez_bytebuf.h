@@ -20,7 +20,7 @@ void bytebuf_clear(bytebuf_t *b);
 
 // =====================================================================
 // 可以写入buf的字节数
-#define bytebuf_writable_size(b)  (b->cap - b->w)
+#define bytebuf_writeable_size(b) (b->cap - b->w)
 
 // writer pos
 #define bytebuf_writer_pos(b)     ((uint8_t*)&(b->data[b->w]))
@@ -28,6 +28,12 @@ void bytebuf_clear(bytebuf_t *b);
 // writer index
 #define bytebuf_writer_index(b)   (b->w)
 
+// can write ?
+#define bytebuf_is_writeable(b)   (b->cap > b->w)
+
+#define bytebuf_reset_writer_index(b)    (b->w=0)
+
+// =====================================================================
 // 可以从buf中读取的字节数
 #define bytebuf_readable_size(b)  (b->w - b->r)
 
@@ -37,18 +43,23 @@ void bytebuf_clear(bytebuf_t *b);
 // reader index
 #define bytebuf_reader_index(b)   (b->r)
 
+// can read ?
+#define bytebuf_is_readable(b)    (b->w > b->r)
+
+#define bytebuf_reset_reader_index(b)    (b->r=0)
+
 // =====================================================================
 // bytebuf 写入 int8_t
 void bytebuf_write_int8(bytebuf_t *b, int8_t val);
 
-// big Endian 写入
+// big endian 写入
 void bytebuf_write_int16(bytebuf_t *b, int16_t val) ;
 
 void bytebuf_write_int32(bytebuf_t *b, int32_t val) ;
 
 void bytebuf_write_int64(bytebuf_t *b, int64_t val) ;
 
-// Little Endian 写入
+// little endian 写入
 void bytebuf_write_int16_le(bytebuf_t *b, int16_t val) ;
 
 void bytebuf_write_int32_le(bytebuf_t *b, int32_t val) ;
