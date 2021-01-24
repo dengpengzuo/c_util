@@ -180,7 +180,7 @@ static int ez_net_tcp_generic_accept(int s, struct sockaddr *sa, socklen_t * len
 	if (fd == -1) {
 		ezerrno = errno;
 		// linux 上 #define EWOULDBLOCK EAGAIN
-		if (ezerrno == EAGAIN || ezerrno == EWOULDBLOCK ) {
+		if (ezerrno == EAGAIN || ezerrno == EINTR /*|| ezerrno == EWOULDBLOCK */) {
 			log_error("sever socket %d accept() not ready.", s);
 			return ANET_EAGAIN;
 		} else if(ezerrno == EMFILE || ezerrno == ENFILE) {
@@ -597,10 +597,8 @@ int ez_net_read(int fd, char *buf, size_t bufsize, ssize_t * nbytes)
 	if (r == 0) {
 		*nbytes = 0;
         ezerrno = errno;
-        if (ezerrno == EAGAIN)
+        if (ezerrno == EAGAIN || ezerrno == EINTR)
             return ANET_EAGAIN; // 才能继续读
-        else if (ezerrno == EINTR)
-            return ANET_EINTR;
         else
             return ANET_OK;
 	} else if (r > 0) {
@@ -625,10 +623,8 @@ int ez_net_write(int fd, char *buf, size_t bufsize, ssize_t * nbytes)
 	if (r == 0) {
 		*nbytes = 0;
 		ezerrno = errno;
-		if (ezerrno == EAGAIN)
+		if (ezerrno == EAGAIN || ezerrno == EINTR)
 			return ANET_EAGAIN; // 才能继续写
-		else if (ezerrno == EINTR)
-            return ANET_EINTR;
 		else
 			return ANET_OK;
     } else if (r > 0) {
