@@ -165,7 +165,7 @@ void run_echo_server(server_t *svr) {
 }
 
 server_t *server = NULL;
-char welcome[] = "welcome to server!";
+char welcome[] = "welcome to server!\n";
 
 int main(int argc, char **argv) {
     char *addr = NULL;
