@@ -213,7 +213,10 @@ int ez_create_file_event(ez_event_loop_t * eventLoop, int fd, EVENT_MASK mask, e
 
 		fe->fd = fd;
 		fe->mask = mask;
-		fe->rfileProc = proc;
+		if (mask == AE_READABLE)
+			fe->rfileProc = proc;
+		else if (mask == AE_WRITABLE)
+			fe->wfileProc = proc;
 		fe->clientData = clientData;
 	} else {
 		is_new = 0;
