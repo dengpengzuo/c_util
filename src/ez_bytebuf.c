@@ -3,7 +3,7 @@
 #include "ez_bytebuf.h"
 #include "ez_malloc.h"
 
-bytebuf_t *new_bytebuf(int size) {
+bytebuf_t *new_bytebuf(size_t size) {
     bytebuf_t *b = ez_malloc(sizeof(bytebuf_t) + size);
     b->cap = size;
     b->r = b->w = 0;
@@ -14,8 +14,15 @@ void free_bytebuf(bytebuf_t *b) {
     ez_free(b);
 }
 
-void bytebuf_clear(bytebuf_t *b) {
+void bytebuf_reset(bytebuf_t *b) {
     b->r = b->w = 0;
+    b->data[0]  = '\0';
+}
+
+bytebuf_t *bytebuf_resize(bytebuf_t *b, size_t size) {
+    bytebuf_t *nw = ez_realloc(b, b->cap + size);
+    nw->cap += size;
+    return nw;
 }
 
 void bytebuf_write_int8(bytebuf_t *b, int8_t val) {

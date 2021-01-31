@@ -32,6 +32,11 @@ static int student_find_proc(ez_rbtree_node_t *node, void *find_args) {
     return o->age == age ? 0 : (o->age > age ? 1 : -1);
 }
 
+static void student_node_proc(ez_rbtree_node_t *node) {
+    test *n = cast_to_type_ptr(node, test);
+    fprintf(stdout, "n->age:%d\n", n->age);
+}
+
 TEST(base, _world) {
     fprintf(stdout, "error:::>find test_t 100 :>!\n");
 }
@@ -48,6 +53,9 @@ TEST(base, _hello) {
     for (int i = 0; i < NODES; ++i) {
         rbtree_insert(&rbtree, rb_node_addr(nodes[i]));
     }
+
+    rbtree_foreach(&rbtree, student_node_proc);
+
     int find_age = 100;
     node = rbtree_find_node(&rbtree, student_find_proc, &find_age);
     if (node != NULL) {

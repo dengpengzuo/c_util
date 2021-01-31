@@ -352,3 +352,30 @@ void rbtree_delete(ez_rbtree_t *tree, ez_rbtree_node_t *node) {
 
     rbt_black(temp);
 }
+
+static void for_each_order(ez_rbtree_node_t *node, ez_rbtree_node_t *sentinel, rbtree_node_proc proc) {
+    if (node != NULL && node != sentinel) {
+        proc(node);
+        if (node->left != NULL) {
+            for_each_order(node->left, sentinel, proc);
+        }
+        if (node->right != NULL) {
+            for_each_order(node->right, sentinel, proc);
+        }
+    }
+}
+
+void rbtree_foreach(ez_rbtree_t * tree, rbtree_node_proc proc) {
+    ez_rbtree_node_t *node, *sentinel;
+    node = tree->root;
+    sentinel = tree->sentinel;
+    if (node == sentinel) return ;
+
+    proc(node);
+    if (node->left != NULL) {
+        for_each_order(node->left, sentinel, proc);
+    }
+    if (node->right != NULL) {
+        for_each_order(node->right, sentinel, proc);
+    }
+}
