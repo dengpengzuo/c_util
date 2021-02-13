@@ -3,6 +3,7 @@
 #define _EZ_UTIL_H_
 
 #include <stdint.h>
+#include <stddef.h>
 #include <stdbool.h>
 #include <time.h>
 
@@ -30,6 +31,6 @@ int64_t mstime(void);
 
 void ez_localtime_r(const time_t *_time_t, struct tm *_tm);
 
-ssize_t ez_read_file(const char *file_name, uint8_t *buf, size_t len);
+size_t ez_read_file(const char *file_name, uint8_t *buf, size_t len);
 
 #endif

@@ -1,15 +1,15 @@
 #ifndef _EZ_STRING_H
 #define _EZ_STRING_H
 
-#include <sys/types.h>
-#include <sys/time.h>
-#include <unistd.h>
+#include <ctype.h>
 #include <stdarg.h>
+#include <stddef.h> /* offsetof() */
 #include <stdint.h>
-#include <stddef.h>             /* offsetof() */
 #include <stdio.h>
 #include <stdlib.h>
-#include <ctype.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 char *ez_strncpy(char *dst, char *src, size_t n);
 

@@ -1,7 +1,8 @@
 #ifndef EZ_RWLOCK_H
 #define EZ_RWLOCK_H
 
-typedef struct rwlock_s {
+typedef struct rwlock_s
+{
     int write;
     int read;
 } rwlock_t;

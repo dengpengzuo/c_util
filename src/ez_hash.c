@@ -1,39 +1,46 @@
-#include <stdint.h>
-#include <stddef.h>
-#include <sys/param.h>
 #include "ez_hash.h"
+
 #include "ez_list.h"
-#include "ez_malloc.h"
 #include "ez_macro.h"
+#include "ez_malloc.h"
+
+#include <stddef.h>
+#include <stdint.h>
+#include <sys/param.h>
 
 // google code's provider MurmurHash3
 // Block read - if your platform needs to do endian-swapping or can only
 // handle aligned reads, do the conversion here
 #define FORCE_INLINE inline __attribute__((always_inline))
 
-FORCE_INLINE uint32_t rotl32(uint32_t x, int8_t r) {
+FORCE_INLINE uint32_t rotl32(uint32_t x, int8_t r)
+{
     return (x << r) | (x >> (32 - r));
 }
 
-FORCE_INLINE uint64_t rotl64(uint64_t x, int8_t r) {
+FORCE_INLINE uint64_t rotl64(uint64_t x, int8_t r)
+{
     return (x << r) | (x >> (64 - r));
 }
 
-#define ROTL32(x, y)        rotl32(x,y)
-#define ROTL64(x, y)        rotl64(x,y)
+#define ROTL32(x, y) rotl32(x, y)
+#define ROTL64(x, y) rotl64(x, y)
 
-#define BIG_CONSTANT(x)     (x##LLU)
+#define BIG_CONSTANT(x) (x##LLU)
 
-FORCE_INLINE uint32_t getblock32(const uint32_t *p, int i) {
+FORCE_INLINE uint32_t getblock32(const uint32_t *p, int i)
+{
     return p[i];
 }
 
-FORCE_INLINE uint64_t getblock64(const uint64_t *p, int i) {
+FORCE_INLINE uint64_t getblock64(const uint64_t *p, int i)
+{
     return p[i];
 }
 
 // Finalization mix - force all bits of a hash block to avalanche
-FORCE_INLINE uint32_t fmix32(uint32_t h) {
+FORCE_INLINE uint32_t fmix32(uint32_t h)
+{
     h ^= h >> 16;
     h *= 0x85ebca6b;
     h ^= h >> 13;
@@ -43,7 +50,8 @@ FORCE_INLINE uint32_t fmix32(uint32_t h) {
     return h;
 }
 
-FORCE_INLINE uint64_t fmix64(uint64_t k) {
+FORCE_INLINE uint64_t fmix64(uint64_t k)
+{
     k ^= k >> 33;
     k *= BIG_CONSTANT(0xff51afd7ed558ccd);
     k ^= k >> 33;
@@ -53,9 +61,10 @@ FORCE_INLINE uint64_t fmix64(uint64_t k) {
     return k;
 }
 
-uint32_t MurmurHash3_x86_32(const void *key, int len, uint32_t seed) {
-    const uint8_t *data = (const uint8_t *) key;
-    const int nblocks = len / 4;
+uint32_t MurmurHash3_x86_32(const void *key, int len, uint32_t seed)
+{
+    const uint8_t *data = (const uint8_t *)key;
+    const int      nblocks = len / 4;
 
     uint32_t h1 = seed;
 
@@ -65,9 +74,10 @@ uint32_t MurmurHash3_x86_32(const void *key, int len, uint32_t seed) {
     //----------
     // body
 
-    const uint32_t *blocks = (const uint32_t *) (data + nblocks * 4);
+    const uint32_t *blocks = (const uint32_t *)(data + nblocks * 4);
 
-    for (int i = -nblocks; i; i++) {
+    for (int i = -nblocks; i; i++)
+    {
         uint32_t k1 = getblock32(blocks, i);
 
         k1 *= c1;
@@ -82,11 +92,12 @@ uint32_t MurmurHash3_x86_32(const void *key, int len, uint32_t seed) {
     //----------
     // tail
 
-    const uint8_t *tail = (const uint8_t *) (data + nblocks * 4);
+    const uint8_t *tail = (const uint8_t *)(data + nblocks * 4);
 
     uint32_t k1 = 0;
 
-    switch (len & 3) {
+    switch (len & 3)
+    {
         case 3:
             k1 ^= tail[2] << 16;
         case 2:
@@ -107,9 +118,10 @@ uint32_t MurmurHash3_x86_32(const void *key, int len, uint32_t seed) {
     return h1;
 }
 
-void MurmurHash3_x86_128(const void *key, const int len, uint32_t seed, uint32_t *out) {
-    const uint8_t *data = (const uint8_t *) key;
-    const int nblocks = len / 16;
+void MurmurHash3_x86_128(const void *key, const int len, uint32_t seed, uint32_t *out)
+{
+    const uint8_t *data = (const uint8_t *)key;
+    const int      nblocks = len / 16;
 
     uint32_t h1 = seed;
     uint32_t h2 = seed;
@@ -124,9 +136,10 @@ void MurmurHash3_x86_128(const void *key, const int len, uint32_t seed, uint32_t
     //----------
     // body
 
-    const uint32_t *blocks = (const uint32_t *) (data + nblocks * 16);
+    const uint32_t *blocks = (const uint32_t *)(data + nblocks * 16);
 
-    for (int i = -nblocks; i; i++) {
+    for (int i = -nblocks; i; i++)
+    {
         uint32_t k1 = getblock32(blocks, i * 4 + 0);
         uint32_t k2 = getblock32(blocks, i * 4 + 1);
         uint32_t k3 = getblock32(blocks, i * 4 + 2);
@@ -172,14 +185,15 @@ void MurmurHash3_x86_128(const void *key, const int len, uint32_t seed, uint32_t
     //----------
     // tail
 
-    const uint8_t *tail = (const uint8_t *) (data + nblocks * 16);
+    const uint8_t *tail = (const uint8_t *)(data + nblocks * 16);
 
     uint32_t k1 = 0;
     uint32_t k2 = 0;
     uint32_t k3 = 0;
     uint32_t k4 = 0;
 
-    switch (len & 15) {
+    switch (len & 15)
+    {
         case 15:
             k4 ^= tail[14] << 16;
         case 14:
@@ -264,9 +278,10 @@ void MurmurHash3_x86_128(const void *key, const int len, uint32_t seed, uint32_t
     out[3] = h4;
 }
 
-void MurmurHash3_x64_128(const void *key, const int len, const uint32_t seed, uint64_t *out) {
-    const uint8_t *data = (const uint8_t *) key;
-    const int nblocks = len / 16;
+void MurmurHash3_x64_128(const void *key, const int len, const uint32_t seed, uint64_t *out)
+{
+    const uint8_t *data = (const uint8_t *)key;
+    const int      nblocks = len / 16;
 
     uint64_t h1 = seed;
     uint64_t h2 = seed;
@@ -277,9 +292,10 @@ void MurmurHash3_x64_128(const void *key, const int len, const uint32_t seed, ui
     //----------
     // body
 
-    const uint64_t *blocks = (const uint64_t *) (data);
+    const uint64_t *blocks = (const uint64_t *)(data);
 
-    for (int i = 0; i < nblocks; i++) {
+    for (int i = 0; i < nblocks; i++)
+    {
         uint64_t k1 = getblock64(blocks, i * 2 + 0);
         uint64_t k2 = getblock64(blocks, i * 2 + 1);
 
@@ -305,47 +321,48 @@ void MurmurHash3_x64_128(const void *key, const int len, const uint32_t seed, ui
     //----------
     // tail
 
-    const uint8_t *tail = (const uint8_t *) (data + nblocks * 16);
+    const uint8_t *tail = (const uint8_t *)(data + nblocks * 16);
 
     uint64_t k1 = 0;
     uint64_t k2 = 0;
 
-    switch (len & 15) {
+    switch (len & 15)
+    {
         case 15:
-            k2 ^= ((uint64_t) tail[14]) << 48;
+            k2 ^= ((uint64_t)tail[14]) << 48;
         case 14:
-            k2 ^= ((uint64_t) tail[13]) << 40;
+            k2 ^= ((uint64_t)tail[13]) << 40;
         case 13:
-            k2 ^= ((uint64_t) tail[12]) << 32;
+            k2 ^= ((uint64_t)tail[12]) << 32;
         case 12:
-            k2 ^= ((uint64_t) tail[11]) << 24;
+            k2 ^= ((uint64_t)tail[11]) << 24;
         case 11:
-            k2 ^= ((uint64_t) tail[10]) << 16;
+            k2 ^= ((uint64_t)tail[10]) << 16;
         case 10:
-            k2 ^= ((uint64_t) tail[9]) << 8;
+            k2 ^= ((uint64_t)tail[9]) << 8;
         case 9:
-            k2 ^= ((uint64_t) tail[8]) << 0;
+            k2 ^= ((uint64_t)tail[8]) << 0;
             k2 *= c2;
             k2 = ROTL64(k2, 33);
             k2 *= c1;
             h2 ^= k2;
 
         case 8:
-            k1 ^= ((uint64_t) tail[7]) << 56;
+            k1 ^= ((uint64_t)tail[7]) << 56;
         case 7:
-            k1 ^= ((uint64_t) tail[6]) << 48;
+            k1 ^= ((uint64_t)tail[6]) << 48;
         case 6:
-            k1 ^= ((uint64_t) tail[5]) << 40;
+            k1 ^= ((uint64_t)tail[5]) << 40;
         case 5:
-            k1 ^= ((uint64_t) tail[4]) << 32;
+            k1 ^= ((uint64_t)tail[4]) << 32;
         case 4:
-            k1 ^= ((uint64_t) tail[3]) << 24;
+            k1 ^= ((uint64_t)tail[3]) << 24;
         case 3:
-            k1 ^= ((uint64_t) tail[2]) << 16;
+            k1 ^= ((uint64_t)tail[2]) << 16;
         case 2:
-            k1 ^= ((uint64_t) tail[1]) << 8;
+            k1 ^= ((uint64_t)tail[1]) << 8;
         case 1:
-            k1 ^= ((uint64_t) tail[0]) << 0;
+            k1 ^= ((uint64_t)tail[0]) << 0;
             k1 *= c1;
             k1 = ROTL64(k1, 31);
             k1 *= c2;
@@ -374,74 +391,85 @@ void MurmurHash3_x64_128(const void *key, const int len, const uint32_t seed, ui
 //========================================================================================================
 // hash.tab
 //
-typedef struct hash_item_s {
-    void *key;
-    int len;
-    void *val;
+typedef struct hash_item_s
+{
+    void *      key;
+    int         len;
+    void *      val;
     list_head_t listNode;
 } hash_item_t;
 
 const uint32_t HASH_MIN_ITEM_SIZE = 16;
 const uint32_t HASH_MAX_ITEM_SIZE = 1024;
 
-struct hash_s {
+struct hash_s
+{
     hash_compare_func compare_func;
-    key_hash_func k_hash;
-    uint32_t bucket;
-    hash_item_t array[0];
+    key_hash_func     k_hash;
+    uint32_t          bucket;
+    hash_item_t       array[0];
 };
 
-hash_t *hash_create(hash_compare_func func, key_hash_func key_func, int buckets) {
+hash_t *hash_create(hash_compare_func func, key_hash_func key_func, int buckets)
+{
     buckets = MAX(HASH_MIN_ITEM_SIZE, buckets);
     buckets = MIN(HASH_MAX_ITEM_SIZE, buckets);
     hash_t *h = ez_malloc(sizeof(hash_t) + sizeof(hash_item_t) * buckets);
     h->compare_func = func;
     h->k_hash = key_func;
-    h->bucket = (uint32_t) buckets;
+    h->bucket = (uint32_t)buckets;
 
-    for (int i = 0; i < h->bucket; ++i) {
+    for (int i = 0; i < h->bucket; ++i)
+    {
         init_list_head(&h->array[i].listNode);
     }
 
     return h;
 }
 
-int hash_put(const hash_t *h, const void *key, const void *val) {
-    int index = h->k_hash(key) & (h->bucket - 1);
+int hash_put(const hash_t *h, const void *key, const void *val)
+{
+    int          index = h->k_hash(key) & (h->bucket - 1);
     hash_item_t *e = &(h->array[index]);
 
     hash_item_t *nv = ez_malloc(sizeof(hash_item_t));
-    nv->key = (void *) key;
-    nv->val = (void *) val;
+    nv->key = (void *)key;
+    nv->val = (void *)val;
 
     list_add(&nv->listNode, &e->listNode);
 
     return 0;
 }
 
-void *hash_get(const hash_t *h, const void *key) {
-    int index = h->k_hash(key) & (h->bucket - 1);
+void *hash_get(const hash_t *h, const void *key)
+{
+    int          index = h->k_hash(key) & (h->bucket - 1);
     hash_item_t *e = &(h->array[index]);
-    LIST_FOR(&e->listNode, i) {
+    LIST_FOR(&e->listNode, i)
+    {
         hash_item_t *te = EZ_CONTAINER_OF(i, hash_item_t, listNode);
         // 比较 (te->key, key, len, len)
         int r = h->compare_func(te->key, key);
-        if (r) {
+        if (r)
+        {
             return te->val;
         }
     }
     return NULL;
 }
 
-void *hash_del(const hash_t *h, const void *key) {
-    void *v = NULL;
-    int index = h->k_hash(key) & (h->bucket - 1);
+void *hash_del(const hash_t *h, const void *key)
+{
+    void *       v = NULL;
+    int          index = h->k_hash(key) & (h->bucket - 1);
     hash_item_t *e = &(h->array[index]);
-    LIST_FOR(&e->listNode, i) {
+    LIST_FOR(&e->listNode, i)
+    {
         hash_item_t *te = EZ_CONTAINER_OF(i, hash_item_t, listNode);
         // 比较 (te->key, key, len, len)
         int r = h->compare_func(te->key, key);
-        if (r) {
+        if (r)
+        {
             v = te->val;
             list_del(&te->listNode);
             break;

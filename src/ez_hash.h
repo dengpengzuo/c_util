@@ -28,6 +28,6 @@ int hash_put(const hash_t *h, const void *key, const void *val);
 
 void *hash_get(const hash_t *h, const void *key);
 
-void* hash_del(const hash_t *h, const void *key);
+void *hash_del(const hash_t *h, const void *key);
 
-#endif                /* __EZ_HASH_H */
+#endif /* __EZ_HASH_H */

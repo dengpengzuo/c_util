@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 
-typedef void *heap_data;
+typedef void *               heap_data;
 typedef struct ez_max_heap_s ez_max_heap_t;
 
 typedef int (*HeapCmpFunc)(heap_data orig, heap_data dest);
