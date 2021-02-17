@@ -9,7 +9,7 @@
 #define rbt_is_black(node) (!rbt_is_red(node))
 #define rbt_copy_color(n1, n2) (n1->color = n2->color)
 
-void rbtree_init(ez_rbtree_t *tree, ez_rbtree_node_t *sentinel, rbTreeNodeCompare node_cmp_proc)
+void rbtree_init(ez_rbtree_t* tree, ez_rbtree_node_t* sentinel, rbTreeNodeCompare node_cmp_proc)
 {
     /* a sentinel must be black */
     rbt_black(sentinel);
@@ -22,37 +22,31 @@ void rbtree_init(ez_rbtree_t *tree, ez_rbtree_node_t *sentinel, rbTreeNodeCompar
     tree->node_cmp_proc = node_cmp_proc;
 }
 
-static ez_rbtree_node_t *rbtree_min(ez_rbtree_node_t *node, ez_rbtree_node_t *sentinel);
+static ez_rbtree_node_t* rbtree_min(ez_rbtree_node_t* node, ez_rbtree_node_t* sentinel);
 
-ez_rbtree_node_t *rbtree_min_node(ez_rbtree_t *tree)
+ez_rbtree_node_t* rbtree_min_node(ez_rbtree_t* tree)
 {
     return rbtree_min(tree->root, tree->sentinel);
 }
 
-static void rbtree_left_rotate(ez_rbtree_node_t **root, ez_rbtree_node_t *sentinel, ez_rbtree_node_t *node)
+static void rbtree_left_rotate(ez_rbtree_node_t** root, ez_rbtree_node_t* sentinel, ez_rbtree_node_t* node)
 {
-    ez_rbtree_node_t *temp;
+    ez_rbtree_node_t* temp;
 
     temp = node->right;
     node->right = temp->left;
 
-    if (temp->left != sentinel)
-    {
+    if (temp->left != sentinel) {
         temp->left->parent = node;
     }
 
     temp->parent = node->parent;
 
-    if (node == *root)
-    {
+    if (node == *root) {
         *root = temp;
-    }
-    else if (node == node->parent->left)
-    {
+    } else if (node == node->parent->left) {
         node->parent->left = temp;
-    }
-    else
-    {
+    } else {
         node->parent->right = temp;
     }
 
@@ -60,30 +54,24 @@ static void rbtree_left_rotate(ez_rbtree_node_t **root, ez_rbtree_node_t *sentin
     node->parent = temp;
 }
 
-static void rbtree_right_rotate(ez_rbtree_node_t **root, ez_rbtree_node_t *sentinel, ez_rbtree_node_t *node)
+static void rbtree_right_rotate(ez_rbtree_node_t** root, ez_rbtree_node_t* sentinel, ez_rbtree_node_t* node)
 {
-    ez_rbtree_node_t *temp;
+    ez_rbtree_node_t* temp;
 
     temp = node->left;
     node->left = temp->right;
 
-    if (temp->right != sentinel)
-    {
+    if (temp->right != sentinel) {
         temp->right->parent = node;
     }
 
     temp->parent = node->parent;
 
-    if (node == *root)
-    {
+    if (node == *root) {
         *root = temp;
-    }
-    else if (node == node->parent->right)
-    {
+    } else if (node == node->parent->right) {
         node->parent->right = temp;
-    }
-    else
-    {
+    } else {
         node->parent->left = temp;
     }
 
@@ -91,16 +79,15 @@ static void rbtree_right_rotate(ez_rbtree_node_t **root, ez_rbtree_node_t *senti
     node->parent = temp;
 }
 
-static inline ez_rbtree_node_t *rbtree_min(ez_rbtree_node_t *node, ez_rbtree_node_t *sentinel)
+static inline ez_rbtree_node_t* rbtree_min(ez_rbtree_node_t* node, ez_rbtree_node_t* sentinel)
 {
-    while (node != NULL && node->left != sentinel)
-    {
+    while (node != NULL && node->left != sentinel) {
         node = node->left;
     }
     return node;
 }
 
-ez_rbtree_node_t *rbtree_find_node(ez_rbtree_t *tree, findCompareKey find_proc, void *find_args)
+ez_rbtree_node_t* rbtree_find_node(ez_rbtree_t* tree, findCompareKey find_proc, void* find_args)
 {
     ez_rbtree_node_t *node, *sentinel;
     node = tree->root;
@@ -108,8 +95,7 @@ ez_rbtree_node_t *rbtree_find_node(ez_rbtree_t *tree, findCompareKey find_proc, 
     if (node == sentinel)
         return NULL;
 
-    do
-    {
+    do {
         int r = find_proc(node, find_args);
         if (r == 0)
             return node;
@@ -120,18 +106,16 @@ ez_rbtree_node_t *rbtree_find_node(ez_rbtree_t *tree, findCompareKey find_proc, 
 }
 
 // tree, *root, node, sentinel
-static void default_rbtree_insert_value(ez_rbtree_t *     tree,
-                                        ez_rbtree_node_t *begin,
-                                        ez_rbtree_node_t *node,
-                                        ez_rbtree_node_t *sentinel)
+static void default_rbtree_insert_value(ez_rbtree_t* tree,
+    ez_rbtree_node_t* begin,
+    ez_rbtree_node_t* node,
+    ez_rbtree_node_t* sentinel)
 {
-    ez_rbtree_node_t **p;
+    ez_rbtree_node_t** p;
 
-    for (;;)
-    {
+    for (;;) {
         p = (tree->node_cmp_proc(node, begin) < 0) ? &begin->left : &begin->right;
-        if (*p == sentinel)
-        {
+        if (*p == sentinel) {
             break;
         }
         begin = *p;
@@ -144,7 +128,7 @@ static void default_rbtree_insert_value(ez_rbtree_t *     tree,
     rbt_red(node); // 新节点, 直接为red.
 }
 
-void rbtree_insert(ez_rbtree_t *tree, ez_rbtree_node_t *node)
+void rbtree_insert(ez_rbtree_t* tree, ez_rbtree_node_t* node)
 {
     ez_rbtree_node_t **root, *temp, *sentinel;
     // 1.节点非红即黑。
@@ -153,11 +137,10 @@ void rbtree_insert(ez_rbtree_t *tree, ez_rbtree_node_t *node)
     // 4.所有红节点的子节点都为黑色。
     // 5.从任一节点到其叶子节点的所有路径上都包含相同数目的黑节点。
     /* a binary tree insert */
-    root = (ez_rbtree_node_t **)&tree->root;
+    root = (ez_rbtree_node_t**)&tree->root;
     sentinel = tree->sentinel;
 
-    if (*root == sentinel)
-    {
+    if (*root == sentinel) {
         node->parent = NULL;
         node->left = sentinel;
         node->right = sentinel;
@@ -170,49 +153,37 @@ void rbtree_insert(ez_rbtree_t *tree, ez_rbtree_node_t *node)
     default_rbtree_insert_value(tree, *root, node, sentinel); // 新节点，直接设为 red.
 
     /* re-balance tree */
-    while (node != *root && rbt_is_red(node->parent))
-    { // 新节点&父节点都是red，就要进行 re-balance tree.
+    while (node != *root && rbt_is_red(node->parent)) { // 新节点&父节点都是red，就要进行 re-balance tree.
 
-        if (node->parent == node->parent->parent->left)
-        {
+        if (node->parent == node->parent->parent->left) {
             temp = node->parent->parent->right; // 叔节点
 
-            if (rbt_is_red(temp))
-            {                            // 叔节点是red
+            if (rbt_is_red(temp)) { // 叔节点是red
                 rbt_black(node->parent); // 父节点,叔节点都设为 black.
                 rbt_black(temp);
                 rbt_red(node->parent->parent); // 祖父节点，设为red. 继续.
                 node = node->parent->parent;
-            }
-            else
-            { // 叔节点是 black.
-                if (node == node->parent->right)
-                {
+            } else { // 叔节点是 black.
+                if (node == node->parent->right) {
                     node = node->parent;
                     rbtree_left_rotate(root, sentinel,
-                                       node); // 左旋，祖节点作为父节点的右儿子，父节点的右儿子写到祖节点左儿子.
+                        node); // 左旋，祖节点作为父节点的右儿子，父节点的右儿子写到祖节点左儿子.
                 }
 
-                rbt_black(node->parent);       // node是red, parent是black
+                rbt_black(node->parent); // node是red, parent是black
                 rbt_red(node->parent->parent); // parent.parent是red
                 rbtree_right_rotate(root, sentinel, node->parent->parent);
             }
-        }
-        else
-        {
+        } else {
             temp = node->parent->parent->left;
 
-            if (rbt_is_red(temp))
-            {
+            if (rbt_is_red(temp)) {
                 rbt_black(node->parent);
                 rbt_black(temp);
                 rbt_red(node->parent->parent);
                 node = node->parent->parent;
-            }
-            else
-            {
-                if (node == node->parent->left)
-                {
+            } else {
+                if (node == node->parent->left) {
                     node = node->parent;
                     rbtree_right_rotate(root, sentinel, node);
                 }
@@ -227,41 +198,32 @@ void rbtree_insert(ez_rbtree_t *tree, ez_rbtree_node_t *node)
     rbt_black(*root);
 }
 
-void rbtree_delete(ez_rbtree_t *tree, ez_rbtree_node_t *node)
+void rbtree_delete(ez_rbtree_t* tree, ez_rbtree_node_t* node)
 {
-    uint8_t            red;
+    uint8_t red;
     ez_rbtree_node_t **root, *sentinel, *subst, *temp, *w;
 
     /* a binary tree delete */
-    root = (ez_rbtree_node_t **)&tree->root;
+    root = (ez_rbtree_node_t**)&tree->root;
     sentinel = tree->sentinel;
 
-    if (node->left == sentinel)
-    {
+    if (node->left == sentinel) {
         temp = node->right;
         subst = node;
-    }
-    else if (node->right == sentinel)
-    {
+    } else if (node->right == sentinel) {
         temp = node->left;
         subst = node;
-    }
-    else
-    {
+    } else {
         subst = rbtree_min(node->right, sentinel);
 
-        if (subst->left != sentinel)
-        {
+        if (subst->left != sentinel) {
             temp = subst->left;
-        }
-        else
-        {
+        } else {
             temp = subst->right;
         }
     }
 
-    if (subst == *root)
-    {
+    if (subst == *root) {
         *root = temp;
         rbt_black(temp);
 
@@ -275,29 +237,20 @@ void rbtree_delete(ez_rbtree_t *tree, ez_rbtree_node_t *node)
 
     red = rbt_is_red(subst);
 
-    if (subst == subst->parent->left)
-    {
+    if (subst == subst->parent->left) {
         subst->parent->left = temp;
-    }
-    else
-    {
+    } else {
         subst->parent->right = temp;
     }
 
-    if (subst == node)
-    {
+    if (subst == node) {
 
         temp->parent = subst->parent;
-    }
-    else
-    {
+    } else {
 
-        if (subst->parent == node)
-        {
+        if (subst->parent == node) {
             temp->parent = subst;
-        }
-        else
-        {
+        } else {
             temp->parent = subst->parent;
         }
 
@@ -306,29 +259,21 @@ void rbtree_delete(ez_rbtree_t *tree, ez_rbtree_node_t *node)
         subst->parent = node->parent;
         rbt_copy_color(subst, node);
 
-        if (node == *root)
-        {
+        if (node == *root) {
             *root = subst;
-        }
-        else
-        {
-            if (node == node->parent->left)
-            {
+        } else {
+            if (node == node->parent->left) {
                 node->parent->left = subst;
-            }
-            else
-            {
+            } else {
                 node->parent->right = subst;
             }
         }
 
-        if (subst->left != sentinel)
-        {
+        if (subst->left != sentinel) {
             subst->left->parent = subst;
         }
 
-        if (subst->right != sentinel)
-        {
+        if (subst->right != sentinel) {
             subst->right->parent = subst;
         }
     }
@@ -338,36 +283,28 @@ void rbtree_delete(ez_rbtree_t *tree, ez_rbtree_node_t *node)
     node->right = NULL;
     node->parent = NULL;
 
-    if (red)
-    {
+    if (red) {
         return;
     }
 
     /* a delete fixup */
-    while (temp != *root && rbt_is_black(temp))
-    {
+    while (temp != *root && rbt_is_black(temp)) {
 
-        if (temp == temp->parent->left)
-        {
+        if (temp == temp->parent->left) {
             w = temp->parent->right;
 
-            if (rbt_is_red(w))
-            {
+            if (rbt_is_red(w)) {
                 rbt_black(w);
                 rbt_red(temp->parent);
                 rbtree_left_rotate(root, sentinel, temp->parent);
                 w = temp->parent->right;
             }
 
-            if (rbt_is_black(w->left) && rbt_is_black(w->right))
-            {
+            if (rbt_is_black(w->left) && rbt_is_black(w->right)) {
                 rbt_red(w);
                 temp = temp->parent;
-            }
-            else
-            {
-                if (rbt_is_black(w->right))
-                {
+            } else {
+                if (rbt_is_black(w->right)) {
                     rbt_black(w->left);
                     rbt_red(w);
                     rbtree_right_rotate(root, sentinel, w);
@@ -380,28 +317,21 @@ void rbtree_delete(ez_rbtree_t *tree, ez_rbtree_node_t *node)
                 rbtree_left_rotate(root, sentinel, temp->parent);
                 temp = *root;
             }
-        }
-        else
-        {
+        } else {
             w = temp->parent->left;
 
-            if (rbt_is_red(w))
-            {
+            if (rbt_is_red(w)) {
                 rbt_black(w);
                 rbt_red(temp->parent);
                 rbtree_right_rotate(root, sentinel, temp->parent);
                 w = temp->parent->left;
             }
 
-            if (rbt_is_black(w->left) && rbt_is_black(w->right))
-            {
+            if (rbt_is_black(w->left) && rbt_is_black(w->right)) {
                 rbt_red(w);
                 temp = temp->parent;
-            }
-            else
-            {
-                if (rbt_is_black(w->left))
-                {
+            } else {
+                if (rbt_is_black(w->left)) {
                     rbt_black(w->right);
                     rbt_red(w);
                     rbtree_left_rotate(root, sentinel, w);
@@ -420,23 +350,20 @@ void rbtree_delete(ez_rbtree_t *tree, ez_rbtree_node_t *node)
     rbt_black(temp);
 }
 
-static void for_each_order(ez_rbtree_node_t *node, ez_rbtree_node_t *sentinel, rbtree_node_proc proc)
+static void for_each_order(ez_rbtree_node_t* node, ez_rbtree_node_t* sentinel, rbtree_node_proc proc)
 {
-    if (node != NULL && node != sentinel)
-    {
+    if (node != NULL && node != sentinel) {
         proc(node);
-        if (node->left != NULL)
-        {
+        if (node->left != NULL) {
             for_each_order(node->left, sentinel, proc);
         }
-        if (node->right != NULL)
-        {
+        if (node->right != NULL) {
             for_each_order(node->right, sentinel, proc);
         }
     }
 }
 
-void rbtree_foreach(ez_rbtree_t *tree, rbtree_node_proc proc)
+void rbtree_foreach(ez_rbtree_t* tree, rbtree_node_proc proc)
 {
     ez_rbtree_node_t *node, *sentinel;
     node = tree->root;
@@ -445,12 +372,10 @@ void rbtree_foreach(ez_rbtree_t *tree, rbtree_node_proc proc)
         return;
 
     proc(node);
-    if (node->left != NULL)
-    {
+    if (node->left != NULL) {
         for_each_order(node->left, sentinel, proc);
     }
-    if (node->right != NULL)
-    {
+    if (node->right != NULL) {
         for_each_order(node->right, sentinel, proc);
     }
 }

@@ -19,8 +19,7 @@
 #define COL_BEGIN(B, C) "\033[" #B ";" #C "m"
 #define COL_END "\033[0m"
 
-typedef struct test_suit_s
-{
+typedef struct test_suit_s {
     list_head_t tests;
 } test_suit_t;
 
@@ -31,14 +30,14 @@ void init_default_suite()
     init_list_head(&default_suite.tests);
 }
 
-void suite_add_test(test_t *test)
+void suite_add_test(test_t* test)
 {
     list_add(&test->next, &default_suite.tests);
 }
 
 void run_default_suite()
 {
-    test_t *p;
+    test_t* p;
     LIST_FOR_R(&default_suite.tests, ti)
     {
         p = EZ_CONTAINER_OF(ti, test_t, next);

@@ -16,7 +16,7 @@
 int64_t ustime(void)
 {
     struct timeval tv;
-    int64_t        ust;
+    int64_t ust;
 
     gettimeofday(&tv, NULL);
     ust = ((int64_t)tv.tv_sec) * 1000000;
@@ -29,7 +29,7 @@ int64_t mstime(void)
     return ustime() / 1000;
 }
 
-void ez_localtime_r(const time_t *_time_t, struct tm *_tm)
+void ez_localtime_r(const time_t* _time_t, struct tm* _tm)
 {
 #if defined(__linux__) || defined(linux)
     localtime_r(_time_t, _tm);
@@ -40,52 +40,45 @@ void ez_localtime_r(const time_t *_time_t, struct tm *_tm)
 #endif
 }
 
-int ez_atoi(uint8_t *line, size_t n)
+int ez_atoi(uint8_t* line, size_t n)
 {
     int value;
 
-    if (n == 0)
-    {
+    if (n == 0) {
         return -1;
     }
 
-    for (value = 0; n--; line++)
-    {
-        if (*line < '0' || *line > '9')
-        {
+    for (value = 0; n--; line++) {
+        if (*line < '0' || *line > '9') {
             return -1;
         }
 
         value = value * 10 + (*line - '0');
     }
 
-    if (value < 0)
-    {
+    if (value < 0) {
         return -1;
     }
 
     return value;
 }
 
-static void ez_skip_space(const char **str, size_t *len)
+static void ez_skip_space(const char** str, size_t* len)
 {
-    while (*len > 0 && isspace(**str))
-    {
+    while (*len > 0 && isspace(**str)) {
         (*str)++;
         (*len)--;
     }
 }
 
-bool ez_strtoull_len(const char *str, uint64_t *out, size_t len)
+bool ez_strtoull_len(const char* str, uint64_t* out, size_t len)
 {
     *out = 0ULL;
 
     ez_skip_space(&str, &len);
 
-    while (len > 0 && (*str) >= '0' && (*str) <= '9')
-    {
-        if (*out >= UINT64_MAX / 10)
-        {
+    while (len > 0 && (*str) >= '0' && (*str) <= '9') {
+        if (*out >= UINT64_MAX / 10) {
             /*
              * At this point the integer is considered out of range,
              * by doing so we convert integers up to (UINT64_MAX - 6)
@@ -99,19 +92,16 @@ bool ez_strtoull_len(const char *str, uint64_t *out, size_t len)
 
     ez_skip_space(&str, &len);
 
-    if (len == 0)
-    {
+    if (len == 0) {
         return true;
-    }
-    else
-    {
+    } else {
         return false;
     }
 }
 
-bool ez_strtoull(const char *str, uint64_t *out)
+bool ez_strtoull(const char* str, uint64_t* out)
 {
-    char *             endptr;
+    char* endptr;
     unsigned long long ull;
 
     errno = 0;
@@ -119,22 +109,18 @@ bool ez_strtoull(const char *str, uint64_t *out)
 
     ull = strtoull(str, &endptr, 10);
 
-    if (errno == ERANGE)
-    {
+    if (errno == ERANGE) {
         return false;
     }
 
-    if (isspace(*endptr) || (*endptr == '\0' && endptr != str))
-    {
-        if ((long long)ull < 0)
-        {
+    if (isspace(*endptr) || (*endptr == '\0' && endptr != str)) {
+        if ((long long)ull < 0) {
             /*
              * Only check for negative signs in the uncommon case when
              * the unsigned number is so big that it's negative is a
              * signed number
              */
-            if (strchr(str, '-') != NULL)
-            {
+            if (strchr(str, '-') != NULL) {
                 return false;
             }
         }
@@ -147,9 +133,9 @@ bool ez_strtoull(const char *str, uint64_t *out)
     return false;
 }
 
-bool ez_strtoll(const char *str, int64_t *out)
+bool ez_strtoll(const char* str, int64_t* out)
 {
-    char *    endptr;
+    char* endptr;
     long long ll;
 
     errno = 0;
@@ -157,13 +143,11 @@ bool ez_strtoll(const char *str, int64_t *out)
 
     ll = strtoll(str, &endptr, 10);
 
-    if (errno == ERANGE)
-    {
+    if (errno == ERANGE) {
         return false;
     }
 
-    if (isspace(*endptr) || (*endptr == '\0' && endptr != str))
-    {
+    if (isspace(*endptr) || (*endptr == '\0' && endptr != str)) {
         *out = ll;
         return true;
     }
@@ -171,9 +155,9 @@ bool ez_strtoll(const char *str, int64_t *out)
     return false;
 }
 
-bool ez_strtoul(const char *str, uint32_t *out)
+bool ez_strtoul(const char* str, uint32_t* out)
 {
-    char *        endptr;
+    char* endptr;
     unsigned long l;
 
     errno = 0;
@@ -181,22 +165,18 @@ bool ez_strtoul(const char *str, uint32_t *out)
 
     l = strtoul(str, &endptr, 10);
 
-    if (errno == ERANGE)
-    {
+    if (errno == ERANGE) {
         return false;
     }
 
-    if (isspace(*endptr) || (*endptr == '\0' && endptr != str))
-    {
-        if ((long)l < 0)
-        {
+    if (isspace(*endptr) || (*endptr == '\0' && endptr != str)) {
+        if ((long)l < 0) {
             /*
              * Only check for negative signs in the uncommon case when
              * the unsigned number is so big that it's negative as a
              * signed number
              */
-            if (strchr(str, '-') != NULL)
-            {
+            if (strchr(str, '-') != NULL) {
                 return false;
             }
         }
@@ -209,23 +189,21 @@ bool ez_strtoul(const char *str, uint32_t *out)
     return false;
 }
 
-bool ez_strtol(const char *str, int32_t *out)
+bool ez_strtol(const char* str, int32_t* out)
 {
-    char *endptr;
-    long  l;
+    char* endptr;
+    long l;
 
     *out = 0L;
     errno = 0;
 
     l = strtol(str, &endptr, 10);
 
-    if (errno == ERANGE)
-    {
+    if (errno == ERANGE) {
         return false;
     }
 
-    if (isspace(*endptr) || (*endptr == '\0' && endptr != str))
-    {
+    if (isspace(*endptr) || (*endptr == '\0' && endptr != str)) {
         *out = l;
         return true;
     }
@@ -233,23 +211,21 @@ bool ez_strtol(const char *str, int32_t *out)
     return false;
 }
 
-bool ez_str2oct(const char *str, int32_t *out)
+bool ez_str2oct(const char* str, int32_t* out)
 {
-    char *endptr;
-    long  l;
+    char* endptr;
+    long l;
 
     *out = 0L;
     errno = 0;
 
     l = strtol(str, &endptr, 8);
 
-    if (errno == ERANGE)
-    {
+    if (errno == ERANGE) {
         return false;
     }
 
-    if (isspace(*endptr) || (*endptr == '\0' && endptr != str))
-    {
+    if (isspace(*endptr) || (*endptr == '\0' && endptr != str)) {
         *out = l;
         return true;
     }
@@ -257,27 +233,21 @@ bool ez_str2oct(const char *str, int32_t *out)
     return false;
 }
 
-size_t ez_read_file(const char *file_name, uint8_t *buf, size_t len)
+size_t ez_read_file(const char* file_name, uint8_t* buf, size_t len)
 {
     ssize_t size = 0;
-    int     fd = open(file_name, O_RDONLY, 0644);
-    if (fd > 0)
-    {
+    int fd = open(file_name, O_RDONLY, 0644);
+    if (fd > 0) {
         size = read(fd, buf, len);
-        if (size == 0)
-        {
+        if (size == 0) {
             log_warn("read file %s 0 bits.", file_name);
-        }
-        else if (size < 0)
-        {
+        } else if (size < 0) {
             log_error("read file %s error:[%s]", file_name, strerror(errno));
             size = 0;
         }
         // 打开成功后,关闭文件句柄.
         close(fd);
-    }
-    else
-    {
+    } else {
         log_error("open file %s failed:[%s]", file_name, strerror(errno));
         size = 0;
     }

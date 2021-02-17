@@ -1,4 +1,6 @@
-set(CMAKE_C_FLAGS "-Wall -std=gnu99")
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_FLAGS "-Wall -std=gnu11")
+
 add_definitions(-D_GNU_SOURCES -DUSE_JEMALLOC)
 
 include_directories(
