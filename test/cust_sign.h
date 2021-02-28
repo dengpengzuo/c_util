@@ -8,6 +8,8 @@
 #include <signal.h>
 #include <error.h>
 #include <errno.h>
+#include <ez_log.h>
+#include <string.h>
 
 struct ez_signal {
     int signo;
