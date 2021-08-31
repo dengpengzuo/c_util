@@ -90,7 +90,7 @@ int main(int argc, char** argv)
 
     cust_signal_init();
 
-    log_init(LOG_VVERB, NULL);
+    log_init(LOG_DEBUG, NULL);
 
     int c = ez_net_tcp_connect(svr_addr, svr_port);
     if (c > 0) {

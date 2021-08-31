@@ -3,17 +3,11 @@
 
 typedef enum {
     LOG_EMERG = 0, /* system in unusable */
-    LOG_ALERT, /* system in unusable */
-    LOG_CRIT, /* system in unusable */
-    LOG_ERR, /* system in unusable */
-    LOG_WARN, /* warning conditions */
-    LOG_NOTICE, /* normal but significant condition (default) */
-    LOG_INFO, /* informational      */
-    LOG_DEBUG, /* debug messages     */
-    LOG_VERB, /* verbose messages   */
-    LOG_VVERB, /* verbose messages on crack */
-    LOG_VVVERB, /* periodic verbose messages on ganga */
-    LOG_PVERB, /* periodic verbose messages on crack */
+    LOG_ALERT,     /* system in unusable */
+    LOG_ERR,       /* system error       */
+    LOG_WARN,      /* warning conditions */
+    LOG_INFO,      /* informational      */
+    LOG_DEBUG,     /* debug messages     */
 } LOG_LEVEL;
 
 /*

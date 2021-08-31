@@ -287,7 +287,7 @@ static int ez_net_unix_connect_ex(const char* path, int flags)
         if (errno == EINPROGRESS && (flags & ANET_CONNECT_NONBLOCK))
             goto end;
         else
-            log_stderr("connect to unix:%s failed, cause:[%s]!", path, strerror(errno));
+            log_error("connect to unix:%s failed, cause:[%s]!", path, strerror(errno));
         // close
         if (s != ANET_ERR) {
             ez_net_close_socket(s);
@@ -347,7 +347,7 @@ static int ez_net_tcp_connect_ex(const char* addr, int port, int flags)
             if (errno == EINPROGRESS && (flags & ANET_CONNECT_NONBLOCK))
                 goto end;
             else {
-                log_stderr("connect to %s:%d failed, cause:[%s]!", addr, port, strerror(errno));
+                log_error("connect to %s:%d failed, cause:[%s]!", addr, port, strerror(errno));
             }
             // close
             if (s != ANET_ERR) {

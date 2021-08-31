@@ -1,6 +1,4 @@
 #include "ez_log.h"
-
-#include "ez_macro.h"
 #include "ez_string.h"
 #include "ez_util.h"
 
@@ -9,12 +7,10 @@
 #include <fcntl.h>
 #include <stddef.h>
 #include <stdarg.h>
-#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/time.h>
-#include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -32,21 +28,17 @@ struct logLevelInfo {
 };
 static struct logger logger;
 
-static struct logLevelInfo LOG_LEVEL_INFO[] = { { .name = "EMERG", .level = LOG_EMERG },
-    { .name = "ALERT", .level = LOG_ALERT },
-    { .name = "CRIT", .level = LOG_CRIT },
-    { .name = "ERR", .level = LOG_ERR },
+static struct logLevelInfo LOG_LEVEL_INFO[] = {
+    { .name = "EMERG",.level = LOG_EMERG },
+    { .name = "ALERT",.level = LOG_ALERT },
+    { .name = "ERROR",.level = LOG_ERR },
     { .name = "WARN", .level = LOG_WARN },
-    { .name = "NOTICE", .level = LOG_NOTICE },
     { .name = "INFO", .level = LOG_INFO },
-    { .name = "DEBUG", .level = LOG_DEBUG },
-    { .name = "VERB", .level = LOG_VERB },
-    { .name = "VVERB", .level = LOG_VVERB },
-    { .name = "VVVERB", .level = LOG_VVVERB },
-    { .name = "PVERB", .level = LOG_PVERB },
-    { .name = NULL } };
+    { .name = "DEBUG",.level = LOG_DEBUG },
+    { .name = NULL }
+};
 
-#define get_log_level_name(level) ((level < LOG_EMERG || level > LOG_PVERB) ? "-" : LOG_LEVEL_INFO[level].name)
+#define get_log_level_name(level) ((level < LOG_EMERG || level > LOG_DEBUG) ? "-" : LOG_LEVEL_INFO[level].name)
 
 int log_init(LOG_LEVEL level, char* name)
 {
@@ -98,7 +90,7 @@ void log_level_up(void)
 {
     struct logger* l = &logger;
 
-    if (l->level < LOG_PVERB) {
+    if (l->level < LOG_DEBUG) {
         l->level++;
         log_stderr("up log level to %s", get_log_level_name(l->level));
     }
