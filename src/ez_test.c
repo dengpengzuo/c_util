@@ -1,8 +1,8 @@
 #include "ez_test.h"
-
+#include "ez_util.h"
 #include "ez_macro.h"
-
 #include <stdio.h>
+
 /*
 字背景颜色:                    字颜色:
 40: 黑                           30: 黑
@@ -38,11 +38,32 @@ void suite_add_test(test_t* test)
 void run_default_suite()
 {
     test_t* p;
+
     LIST_FOR_R(&default_suite.tests, ti)
     {
+        /*
+         * [ RUN      ] ArenaTest.Empty
+         * /work/cxx-code/Leveldb/util/arena_test.cc:46: Failure
+         *  Expected: (arena.MemoryUsage()) <= (bytes), actual: 4104 vs 1
+         * [       OK ] ArenaTest.Empty (0 ms)
+         */
         p = EZ_CONTAINER_OF(ti, test_t, next);
-        fprintf(stdout, COL_BEGIN(40, 34) "==== Test [%s] ..." COL_END "\n", p->name);
-        p->func();
-        fprintf(stdout, COL_BEGIN(40, 34) "==== Test [%s] " COL_BEGIN(40, 32) "PASSED" COL_END "\n", p->name);
+        fprintf(stdout, COL_BEGIN(40, 32) "[ RUN        ] " COL_BEGIN(40, 37) "%s" COL_END "\n", p->name);
+        int64_t begin = mstime();
+        p->func(p);
+        int64_t cst = mstime() - begin;
+
+        switch (p->result) {
+        case R_FAIL_BREAK:
+            fprintf(stdout, "%s\n", p->msg);
+            fprintf(stdout, COL_BEGIN(40, 31) "[     FAILED ] " COL_BEGIN(40, 37) "%s (%ld ms)" COL_END "\n", p->name, cst);
+            break;
+        default:
+            fprintf(stdout, COL_BEGIN(40, 32) "[         OK ] " COL_BEGIN(40, 37) "%s (%ld ms)" COL_END "\n", p->name, cst);
+        }
+
+        if (p->result == R_FAIL_BREAK) {
+            break;
+        }
     }
 }
