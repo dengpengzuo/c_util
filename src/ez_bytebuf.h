@@ -10,7 +10,7 @@ typedef struct bytebuf_s {
     uint16_t r; // reader index
     uint16_t w; // writer index
     uint16_t cap;
-    uint8_t data[0];
+    uint8_t  data[0];
 } bytebuf_t;
 
 bytebuf_t* new_bytebuf(size_t size);
@@ -55,18 +55,34 @@ bytebuf_t* bytebuf_resize(bytebuf_t* b, size_t size);
 // bytebuf 写入 int8_t
 void bytebuf_write_int8(bytebuf_t* b, int8_t val);
 
-// big endian 写入
+void bytebuf_read_int8(bytebuf_t* b, int8_t *val);
+
+// big endian
 void bytebuf_write_int16(bytebuf_t* b, int16_t val);
 
 void bytebuf_write_int32(bytebuf_t* b, int32_t val);
 
 void bytebuf_write_int64(bytebuf_t* b, int64_t val);
 
-// little endian 写入
+void bytebuf_read_int16(bytebuf_t* b, int16_t *val);
+
+void bytebuf_read_int32(bytebuf_t* b, int32_t *val);
+
+void bytebuf_read_int64(bytebuf_t* b, int64_t *val);
+
+
+// little endian
 void bytebuf_write_int16_le(bytebuf_t* b, int16_t val);
 
 void bytebuf_write_int32_le(bytebuf_t* b, int32_t val);
 
 void bytebuf_write_int64_le(bytebuf_t* b, int64_t val);
+
+void bytebuf_read_int16_le(bytebuf_t* b, int16_t val);
+
+void bytebuf_read_int32_le(bytebuf_t* b, int32_t val);
+
+void bytebuf_read_int64_le(bytebuf_t* b, int64_t val);
+
 
 #endif // EZ_BYTEBUF_H
