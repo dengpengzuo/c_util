@@ -7,8 +7,8 @@
 // netty bytebuf
 //
 typedef struct bytebuf_s {
-    size_t   r; // reader index
-    size_t   w; // writer index
+    uint32_t r; // reader index
+    uint32_t w; // writer index
     size_t   cap;
     uint8_t *data;
 } bytebuf_t;
