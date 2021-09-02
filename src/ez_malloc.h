@@ -5,6 +5,26 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#define EZ_MARK(f) ((f - 1))
+
+/*
+ * Make data 'd' or pointer 'p', n-byte aligned, where n is a power of 2
+ */
+#define EZ_ALIGNVOID sizeof(uintptr_t) /* platform word */
+
+// 转换为 void *的整数倍.
+#define EZ_ALIGN(d) (ez_align_to(d, EZ_MARK(EZ_ALIGNVOID)))
+static inline size_t ez_align_to(size_t d, size_t a)
+{
+    return (size_t)(d + a) & ~a;
+}
+
+#define EZ_ALIGN_PTR(p) (ez_align_ptr_to(p, EZ_MARK(EZ_ALIGNVOID)))
+static inline void* ez_align_ptr_to(void* ptr, size_t a)
+{
+    return (void*)(uintptr_t)ez_align_to((size_t)((uintptr_t)ptr), a);
+}
+
 size_t ez_malloc_used_memory(void);
 
 typedef void (*zmalloc_oom_handler_t)(size_t);

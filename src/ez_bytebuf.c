@@ -2,18 +2,18 @@
 
 #include "ez_malloc.h"
 
-#include <unistd.h>
-
 bytebuf_t* new_bytebuf(size_t size)
 {
-    bytebuf_t* b = ez_malloc(sizeof(bytebuf_t) + size);
-    b->cap = size;
+    bytebuf_t* b = ez_malloc(sizeof(bytebuf_t));
     b->r = b->w = 0;
+    b->data = ez_malloc(EZ_ALIGN(size));
+    b->cap = EZ_ALIGN(size);
     return b;
 }
 
 void free_bytebuf(bytebuf_t* b)
 {
+    ez_free(b->data);
     ez_free(b);
 }
 
@@ -23,11 +23,11 @@ void bytebuf_reset(bytebuf_t* b)
     b->data[0] = '\0';
 }
 
-bytebuf_t* bytebuf_resize(bytebuf_t* b, size_t size)
+void bytebuf_resize(bytebuf_t* b, size_t size)
 {
-    bytebuf_t* nw = ez_realloc(b, b->cap + size);
-    nw->cap += size;
-    return nw;
+    void* data = ez_realloc(b->data, EZ_ALIGN(size));
+    b->data = (uint8_t*)data;
+    b->cap = EZ_ALIGN(size);
 }
 
 void bytebuf_write_int8(bytebuf_t* b, int8_t val)
@@ -105,17 +105,29 @@ void bytebuf_read_int16(bytebuf_t* b, int16_t* val)
 void bytebuf_write_int16_le(bytebuf_t* b, int16_t val)
 {
     b->data[b->w + 1] = (uint8_t)((val >> 8) & 0xff);
-    b->data[b->w + 0] = (uint8_t)((val)&0xff);
+    b->data[b->w + 0] = (uint8_t)((val     ) & 0xff);
     b->w += 2;
+}
+
+void bytebuf_read_int16_le(bytebuf_t* b, int16_t* val)
+{
+    *val = (int16_t)(b->data[b->r + 1]) << 8 | (int16_t)(b->data[b->r + 0]);
+    b->r += 2;
 }
 
 void bytebuf_write_int32_le(bytebuf_t* b, int32_t val)
 {
     b->data[b->w + 3] = (uint8_t)((val >> 24) & 0xff);
     b->data[b->w + 2] = (uint8_t)((val >> 16) & 0xff);
-    b->data[b->w + 1] = (uint8_t)((val >> 8) & 0xff);
-    b->data[b->w + 0] = (uint8_t)((val)&0xff);
+    b->data[b->w + 1] = (uint8_t)((val >>  8) & 0xff);
+    b->data[b->w + 0] = (uint8_t)((val      ) & 0xff);
     b->w += 4;
+}
+
+void bytebuf_read_int32_le(bytebuf_t* b, int32_t* val)
+{
+    *val = (int32_t)(b->data[b->r + 3]) << 24 | (int32_t)(b->data[b->r + 2]) << 16 | (int32_t)(b->data[b->r + 1]) << 8 | (int32_t)(b->data[b->r + 0]);
+    b->r += 4;
 }
 
 void bytebuf_write_int64_le(bytebuf_t* b, int64_t val)
@@ -126,7 +138,13 @@ void bytebuf_write_int64_le(bytebuf_t* b, int64_t val)
     b->data[b->w + 4] = (uint8_t)((val >> 32) & 0xff);
     b->data[b->w + 3] = (uint8_t)((val >> 24) & 0xff);
     b->data[b->w + 2] = (uint8_t)((val >> 16) & 0xff);
-    b->data[b->w + 1] = (uint8_t)((val >> 8) & 0xff);
-    b->data[b->w + 0] = (uint8_t)((val)&0xff);
+    b->data[b->w + 1] = (uint8_t)((val >>  8) & 0xff);
+    b->data[b->w + 0] = (uint8_t)((val      ) & 0xff);
     b->w += 8;
+}
+
+void bytebuf_read_int64_le(bytebuf_t* b, int64_t* val)
+{
+    *val = (int64_t)(b->data[b->r + 7]) << 56 | (int64_t)(b->data[b->r + 6]) << 48 | (int64_t)(b->data[b->r + 5]) << 40 | (int64_t)(b->data[b->r + 4]) << 32 | (int64_t)(b->data[b->r + 3]) << 24 | (int64_t)(b->data[b->r + 2]) << 16 | (int64_t)(b->data[b->r + 1]) << 8 | (int64_t)(b->data[b->r + 0]);
+    b->r += 8;
 }
